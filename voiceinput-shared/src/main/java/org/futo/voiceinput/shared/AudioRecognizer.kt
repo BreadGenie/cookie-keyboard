@@ -215,7 +215,18 @@ class AudioRecognizer(
         verifyModelsExist()
     }
 
-    fun reset() {
+    private var diagnosticAdmission: Any? = null
+    private fun releaseAdmission() {
+        val token = diagnosticAdmission ?: return
+        diagnosticAdmission = null
+        // Job completion waits for blocking native work, even when its coroutine was cancelled.
+        val pending = listOfNotNull(modelJob, loadModelJob).filter { !it.isCompleted }
+        val remaining = java.util.concurrent.atomic.AtomicInteger(pending.size + 1)
+        fun done() { if (remaining.decrementAndGet() == 0) org.futo.voiceinput.shared.opencl.VoiceWorkGate.release(token) }
+        pending.forEach { it.invokeOnCompletion { done() } }
+        done()
+    }
+    fun reset(preserveFastResidency: Boolean = false) {
         recorder?.stop()
         recorderJob?.cancel()
 
@@ -223,9 +234,11 @@ class AudioRecognizer(
         recorder = null
 
         modelJob?.cancel()
+        loadModelJob?.cancel()
         isRecording = false
 
-        modelRunner.cancelAll()
+        modelRunner.cancelAll(preserveFastResidency)
+        releaseAdmission()
 
         unfocusAudio()
 
@@ -293,7 +306,7 @@ class AudioRecognizer(
     }
 
     private suspend fun preloadModels() {
-        modelRunner.preload(settings.modelRunConfiguration)
+        modelRunner.preload(settings.modelRunConfiguration, settings.decodingConfiguration)
     }
 
     private fun expandSpaceIfAllowed(): Boolean {
@@ -498,11 +511,16 @@ class AudioRecognizer(
     }
 
     private fun startRecording() {
+        if (diagnosticAdmission == null) {
+            diagnosticAdmission = org.futo.voiceinput.shared.opencl.VoiceWorkGate.acquire()
+            if (diagnosticAdmission == null) { listener.cancelled(); return }
+        }
         val device = try {
             createRecorderAndJob(settings.recordingConfiguration.preferBluetoothMic)
         } catch (e: SecurityException) {
             // It's possible we may have lost permission, so let's just ask for permission again
             clearCommunicationDevice()
+            releaseAdmission()
             requestPermission()
             return
         }
@@ -558,11 +576,22 @@ class AudioRecognizer(
                 settings.decodingConfiguration,
                 runnerCallback
             ).trim()
-        }catch(e: InferenceCancelledException) {
+        } catch (_: org.futo.voiceinput.shared.opencl.OpenClRecognitionException) {
+            withContext(Dispatchers.Main) { reset(); listener.modelLoadingFailed() }
+            return
+        } catch(e: InferenceCancelledException) {
             yield()
             return
         }
 
+        // stop_to_result is measured before editor commit; it is not a commit metric.
+        val requested = when {
+            settings.modelRunConfiguration.fastDictation && settings.modelRunConfiguration.experimentalOpenCl -> "fast"
+            settings.modelRunConfiguration.experimentalOpenCl -> "opencl"
+            else -> "stock"
+        }
+        org.futo.voiceinput.shared.opencl.OpenClDiagnostics.record(context,
+            "phase=stop_to_result backend_requested=$requested elapsed_ms=${android.os.SystemClock.elapsedRealtime()-stoppedAt} audio_ms=${floatArray.size/16}")
         val text = when {
             isBlankResult(outputText) -> ""
             else -> outputText
@@ -572,12 +601,15 @@ class AudioRecognizer(
         lifecycleScope.launch {
             withContext(Dispatchers.Main) {
                 yield()
+                releaseAdmission()
                 listener.finished(text)
             }
         }
     }
 
+    private var stoppedAt = 0L
     private fun onFinishRecording() {
+        stoppedAt = android.os.SystemClock.elapsedRealtime()
         recorderJob?.cancel()
 
         if (!isRecording) {

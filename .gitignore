@@ -4,6 +4,10 @@
 .idea/
 LatinIME.iml
 build/
+/build
+/tools/opencl/.deps/
+/tools/opencl/build/
+__pycache__/
 local.properties
 crashreporting.properties
 keystore.properties

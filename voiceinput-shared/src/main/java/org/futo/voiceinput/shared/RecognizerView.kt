@@ -159,6 +159,11 @@ class RecognizerView(
         recognizer.cancel()
     }
 
+    /** Called only after the host has received the final result. */
+    fun closeCompleted() {
+        recognizer.reset(preserveFastResidency = true)
+    }
+
     private val audioRecognizerListener = object : AudioRecognizerListener {
         override fun cancelled() {
             listener.cancelled()
@@ -249,8 +254,11 @@ class RecognizerView(
         )
     )
 
-    fun reset() {
-        recognizer.reset()
+    /** Fresh-window init shares ModelManager.fastResident: callers pass
+     * preserve=true so startup never retires the verified token (true
+     * cancellation keeps the invalidating default). */
+    fun reset(preserveFastResidency: Boolean = false) {
+        recognizer.reset(preserveFastResidency)
     }
 
     fun start() {

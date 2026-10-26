@@ -777,6 +777,7 @@ struct whisper_decoder {
 
 struct whisper_state {
     int64_t t_sample_us = 0;
+    int64_t t_futo_logits_us = 0;
     int64_t t_encode_us = 0;
     int64_t t_decode_us = 0;
     int64_t t_batchd_us = 0;
@@ -3871,11 +3872,24 @@ void whisper_print_timings(struct whisper_context * ctx) {
     AKLOGI("%s:    total time = %8.2f ms\n", __func__, (t_end_us - ctx->t_start_us)/1000.0f);
 }
 
+extern "C" void futo_session_timings(struct whisper_context * ctx, double * v) {
+    auto * s = ctx->state;
+    v[0]=s->t_encode_us*1e-3;
+    v[2]=s->t_decode_us*1e-3; v[3]=s->t_batchd_us*1e-3; v[4]=s->t_prompt_us*1e-3;
+    v[5]=s->t_sample_us*1e-3; v[6]=s->t_futo_logits_us*1e-3;
+    v[1]=v[2]+v[3]+v[4]+v[5];
+    v[10]=s->n_decode; v[11]=s->n_batchd; v[12]=s->n_prompt; v[13]=s->n_sample;
+    v[9]=0;
+    for(int i=0;i<whisper_full_n_segments(ctx);++i) v[9]+=whisper_full_n_tokens(ctx,i);
+}
+
 void whisper_reset_timings(struct whisper_context * ctx) {
     ctx->t_start_us = ggml_time_us();
     if (ctx->state != nullptr) {
         ctx->state->t_mel_us = 0;
         ctx->state->t_sample_us = 0;
+        ctx->state->t_futo_logits_us = 0;
+        ctx->state->t_batchd_us = 0;
         ctx->state->t_encode_us = 0;
         ctx->state->t_decode_us = 0;
         ctx->state->t_prompt_us = 0;
@@ -5380,6 +5394,7 @@ int whisper_full_with_state(
                     }
 
                     state->t_sample_us += ggml_time_us() - t_start_sample_us;
+                    state->t_futo_logits_us += ggml_time_us() - t_start_sample_us;
                 }
             }
 
@@ -5736,6 +5751,7 @@ int whisper_full_with_state(
                     }
 
                     state->t_sample_us += ggml_time_us() - t_start_sample_us;
+                    state->t_futo_logits_us += ggml_time_us() - t_start_sample_us;
                 }
             }
 

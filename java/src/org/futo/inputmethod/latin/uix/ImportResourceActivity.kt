@@ -568,6 +568,10 @@ object ResourceHelper {
         return file
     }
 
+    /** Same first active keyboard locale for live dictation and debug replay. */
+    fun tryFindingVoiceInputModelForActiveLocales(context: Context, locales: List<Locale>): ModelLoader? =
+        tryFindingVoiceInputModelForLocale(context, locales.firstOrNull() ?: Locale.ROOT)
+
     fun tryFindingVoiceInputModelForLocale(context: Context, locale: Locale): ModelLoader? {
         val file = runBlocking { findFileForKind(context, locale, FileKind.VoiceInput) }
             ?: return BuiltInVoiceInputFallbacks[locale.language]

@@ -73,3 +73,15 @@ val ANIMATE_BUBBLE = SettingsKey(
     key = booleanPreferencesKey("animate_bubble"),
     default = true
 )
+// Preview opt-in. Stock FUTO remains the default after install and upgrade.
+val EXPERIMENTAL_OPENCL = SettingsKey(
+    key = booleanPreferencesKey("experimental_opencl_preview"),
+    default = false
+)
+
+// Everyday Fast dictation. Available only under EXPERIMENTAL_OPENCL; off by
+// default so existing saved settings never migrate.
+val EXPERIMENTAL_OPENCL_FAST = SettingsKey(
+    key = booleanPreferencesKey("experimental_opencl_fast"),
+    default = false
+)

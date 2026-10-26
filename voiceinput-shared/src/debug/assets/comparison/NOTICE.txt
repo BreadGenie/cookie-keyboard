@@ -1,0 +1,30 @@
+Public, unheldout test fixture only. Not an accuracy corpus.
+Speech: John F. Kennedy US inaugural address, 20 January 1961 (US federal speech, public domain).
+Source bytes already archived locally from whisper.cpp samples/jfk.wav, revision 231638a0717b7822784297e5980965ffcec05810.
+Original PCM16 mono16kHz: 352000 bytes, SHA256 a29462b8ebd467318000e683b9117ade46230d3255ed2024e7db894abd9b38c9.
+battery-12s: original PCM plus 1s zero padding.
+battery-60s: five copies of original PCM with zero padding (archived fixture, not distinct utterances).
+battery-silence-10s: digital zero PCM.
+No personal recording. Public-fixture transcripts in reports are explicitly labeled.
+The upstream distribution license follows.
+MIT License
+
+Copyright (c) 2023-2026 The ggml authors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

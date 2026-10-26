@@ -1,0 +1,33 @@
+{
+  "whisper_cpp": {
+    "revision": "231638a0717b7822784297e5980965ffcec05810",
+    "url": "https://codeload.github.com/ggml-org/whisper.cpp/tar.gz/231638a0717b7822784297e5980965ffcec05810",
+    "sha256": "f69100f71ce6c815624994362cd8a8eaaa26d678e5ce518ed35900d4b679e721",
+    "license": "MIT"
+  },
+  "opencl_headers": {
+    "revision": "4ea6df132107e3b4b9407f903204b5522fdffcd6",
+    "tag": "v2024.10.24",
+    "location": "third_party/CL",
+    "license": "Apache-2.0",
+    "files": {
+      "cl.h": "3c51949c38bf9bca6dbe919a1f60727bad1ef4a7a321c6d530f7502ddc1fd706",
+      "cl_platform.h": "be9647d121bfea20cfac9fe2be2e3ac7851a0dd77a141363dcc72f126a1a358c",
+      "cl_version.h": "1b161f73c0f0b07121314055f75df6c19d6a93e3a0d24202c6f3e2dd1615b2a2"
+    }
+  },
+  "model": {
+    "name": "FUTO English-244 (small_en_acft_q8_0.bin)",
+    "bytes": 264477561,
+    "sha256": "58fbe949992dafed917590d58bc12ca577b08b9957f0b3e0d7ee71b64bed3aa8",
+    "bundled": false,
+    "note": "Not redistributed. Supply your own copy; the keyboard verifies it before use."
+  },
+  "test_fixtures": {
+    "speech_source": "whisper.cpp samples/jfk.wav (public-domain 1961 JFK inaugural excerpt)",
+    "speech_sha256_original": "a29462b8ebd467318000e683b9117ade46230d3255ed2024e7db894abd9b38c9",
+    "battery_12s_sha256": "d529c88c24f64dce6e59b42360341f5833f4ee3a6e57e894a13cd24b46753811",
+    "battery_60s_sha256": "95673726ef1517091442ae7cc98177c98e75bda61726f0d1ac86d1ff1d0d77b2",
+    "battery_silence_10s_sha256": "ac2878215ad33205d1732578c89f25ededaad1b676911c540825bcf4baa42d9b"
+  }
+}

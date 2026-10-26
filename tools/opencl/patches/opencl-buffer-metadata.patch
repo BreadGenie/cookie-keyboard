@@ -1,0 +1,42 @@
+--- a/ggml/src/ggml-opencl/ggml-opencl.cpp
++++ b/ggml/src/ggml-opencl/ggml-opencl.cpp
+@@ -13071,16 +13071,22 @@
+ 
+ static size_t ggml_backend_opencl_buffer_type_get_alignment(ggml_backend_buffer_type_t buffer_type) {
+     ggml_backend_opencl_device_context * dev_ctx = (ggml_backend_opencl_device_context *) buffer_type->device->context;
+-    return dev_ctx->backend_ctx->alignment;
++    // Buffer metadata is queried before ggml_cl_init() by model allocators.
++    // Device properties are available without a backend, queue or kernel build.
++    cl_uint base_align_in_bits;
++    CL_CHECK(clGetDeviceInfo(dev_ctx->device, CL_DEVICE_MEM_BASE_ADDR_ALIGN,
++                            sizeof(base_align_in_bits), &base_align_in_bits, nullptr));
++    GGML_ASSERT(base_align_in_bits > 0 && base_align_in_bits % 8u == 0);
++    return base_align_in_bits / 8u;
+ }
+ 
+ static size_t ggml_backend_opencl_buffer_type_get_max_size(ggml_backend_buffer_type_t buffer_type) {
+-    static size_t max_size = -1;
+-    if (max_size == (size_t)-1) {
+-        ggml_backend_opencl_device_context * dev_ctx = (ggml_backend_opencl_device_context *) buffer_type->device->context;
+-        max_size = dev_ctx->backend_ctx->max_alloc_size;
+-    }
+-    return max_size;
++    auto * dev_ctx = static_cast<ggml_backend_opencl_device_context *>(buffer_type->device->context);
++    // CL_DEVICE_MAX_MEM_ALLOC_SIZE is cl_ulong and is specific to this device.
++    cl_ulong max_size;
++    CL_CHECK(clGetDeviceInfo(dev_ctx->device, CL_DEVICE_MAX_MEM_ALLOC_SIZE,
++                            sizeof(max_size), &max_size, nullptr));
++    return static_cast<size_t>(MIN(max_size, static_cast<cl_ulong>(SIZE_MAX)));
+ }
+ 
+ static bool ggml_backend_opencl_buffer_type_supports_backend(ggml_backend_buffer_type_t buft, ggml_backend_t backend) {
+@@ -13100,8 +13106,7 @@
+     // subbuffer would overlap the next tensor in the pool. Reserve the worst-case
+     // carve slack: at most 5 components (q5_K), i.e. 4 aligned gaps.
+     if (ggml_is_quantized(tensor->type)) {
+-        ggml_backend_opencl_device_context * dev_ctx = (ggml_backend_opencl_device_context *) buft->device->context;
+-        size += 4 * dev_ctx->backend_ctx->alignment;
++        size += 4 * ggml_backend_opencl_buffer_type_get_alignment(buft);
+     }
+ #endif // GGML_OPENCL_SOA_Q
+     return size;

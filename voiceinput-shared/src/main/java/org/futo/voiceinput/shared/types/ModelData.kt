@@ -128,3 +128,10 @@ public class ModelFileFile(
         return "File${file.absolutePath}"
     }
 }
+
+/** File-backed models only. Provisioning remains owned by the existing model store. */
+internal fun ModelLoader.openClFile(context: Context): File? = when (this) {
+    is ModelFileFile -> file
+    is ModelDownloadable -> File(context.filesDir, ggmlFile)
+    else -> null
+}

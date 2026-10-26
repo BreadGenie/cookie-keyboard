@@ -85,6 +85,8 @@ class WhisperGGML(
         handle = 0L
     }
 
+    suspend fun diagnosticTimings(): DoubleArray = withContext(inferenceContext) { timingsNative(handle) }
+    private external fun timingsNative(handle: Long): DoubleArray
     private external fun openNative(path: String): Long
     private external fun openFromBufferNative(buffer: Buffer): Long
     private external fun inferNative(handle: Long, samples: FloatArray, prompt: String, languages: Array<String>, bailLanguages: Array<String>, decodingMode: Int, suppressNonSpeechTokens: Boolean): String

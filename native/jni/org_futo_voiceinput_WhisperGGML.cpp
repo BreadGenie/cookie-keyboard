@@ -2,8 +2,11 @@
 #include <vector>
 #include <map>
 #include <jni.h>
-#include <bits/sysconf.h>
+#include <unistd.h>
+#include <chrono>
+static double nowMs() { return std::chrono::duration<double,std::milli>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
 #include "ggml/whisper.h"
+extern "C" void futo_session_timings(whisper_context *, double *);
 #include "defines.h"
 #include "org_futo_voiceinput_WhisperGGML.h"
 #include "jni_common.h"
@@ -20,6 +23,7 @@ struct WhisperModelState {
     std::map<int, std::string> partial_results;
 
     volatile int cancel_flag = 0;
+    double metrics[23]{};
 };
 
 static jlong WhisperGGML_open(JNIEnv *env, jclass clazz, jstring model_dir) {
@@ -139,6 +143,7 @@ static jstring WhisperGGML_infer(JNIEnv *env, jobject instance, jlong handle, jf
 
     wparams.partial_text_callback_user_data = state;
     wparams.partial_text_callback = [](struct whisper_context * ctx, struct whisper_state * state, const whisper_token_data *tokens, size_t n_tokens, void * user_data) {
+        const auto callbackStart=nowMs();
         std::string partial;
 
         //AKLOGI(" -- - - - - -- ");
@@ -181,6 +186,8 @@ static jstring WhisperGGML_infer(JNIEnv *env, jobject instance, jlong handle, jf
         jstring pjstr = string2jstring(wstate->env, final_partial.c_str());
         wstate->env->CallVoidMethod(wstate->partial_result_instance, wstate->partial_result_method, pjstr);
         wstate->env->DeleteLocalRef(pjstr);
+        wstate->metrics[7]+=nowMs()-callbackStart;
+        wstate->metrics[8]++;
     };
 
     wparams.abort_callback_user_data = state;
@@ -202,7 +209,14 @@ static jstring WhisperGGML_infer(JNIEnv *env, jobject instance, jlong handle, jf
     };
 
     AKLOGI("Calling whisper_full");
+    std::fill(std::begin(state->metrics),std::end(state->metrics),0.0);
+    state->metrics[14]=wparams.n_threads;state->metrics[15]=wparams.audio_ctx;state->metrics[16]=num_samples;
+    whisper_reset_timings(state->context);
+    const auto fullStart=nowMs();
     int res = whisper_full(state->context, wparams, samples, (int)num_samples);
+    state->metrics[17]=nowMs()-fullStart;
+    // Release the JNI pin/copy after synchronous inference. No audio retained by diagnostics.
+    env->ReleaseFloatArrayElements(samples_array, samples, JNI_ABORT);
     if(res != 0) {
         AKLOGE("WhisperGGML whisper_full failed with non-zero code %d", res);
     }
@@ -250,7 +264,13 @@ static void WhisperGGML_cancel(JNIEnv *env, jclass clazz, jlong handle) {
 }
 
 
+static jdoubleArray WhisperGGML_timings(JNIEnv *env, jobject, jlong handle) {
+    auto *state=reinterpret_cast<WhisperModelState *>(handle);
+    futo_session_timings(state->context,state->metrics);
+    auto result=env->NewDoubleArray(23);env->SetDoubleArrayRegion(result,0,23,state->metrics);return result;
+}
 static const JNINativeMethod sMethods[] = {
+        {const_cast<char *>("timingsNative"),const_cast<char *>("(J)[D"),reinterpret_cast<void *>(WhisperGGML_timings)},
         {
                 const_cast<char *>("openNative"),
                 const_cast<char *>("(Ljava/lang/String;)J"),

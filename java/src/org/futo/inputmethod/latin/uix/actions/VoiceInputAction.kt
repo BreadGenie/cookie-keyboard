@@ -32,6 +32,8 @@ import org.futo.inputmethod.latin.uix.ActionWindow
 import org.futo.inputmethod.latin.uix.CAN_EXPAND_SPACE
 import org.futo.inputmethod.latin.uix.CloseResult
 import org.futo.inputmethod.latin.uix.DISALLOW_SYMBOLS
+import org.futo.inputmethod.latin.uix.EXPERIMENTAL_OPENCL
+import org.futo.inputmethod.latin.uix.EXPERIMENTAL_OPENCL_FAST
 import org.futo.inputmethod.latin.uix.ENABLE_SOUND
 import org.futo.inputmethod.latin.uix.KeyboardManagerForAction
 import org.futo.inputmethod.latin.uix.PREFER_BLUETOOTH
@@ -147,7 +149,9 @@ private class VoiceInputActionWindow(
             shouldAnimateBubble = animateBubble,
             modelRunConfiguration = MultiModelRunConfiguration(
                 primaryModel = primaryModel,
-                languageSpecificModels = languageSpecificModels
+                languageSpecificModels = languageSpecificModels,
+                experimentalOpenCl = context.getSetting(EXPERIMENTAL_OPENCL),
+                fastDictation = context.getSetting(EXPERIMENTAL_OPENCL_FAST)
             ),
             decodingConfiguration = DecodingConfiguration(
                 glossary = glossary,
@@ -187,7 +191,11 @@ private class VoiceInputActionWindow(
         this@VoiceInputActionWindow.recognizerView.value = recognizerView
 
         //yield()
-        recognizerView.reset()
+        // Fresh per-window recognizer shares ModelManager.fastResident: init
+        // must not retire the verified token (v22 close preservation would be
+        // undone and the next prewarm cold-reloads). True cancellation still
+        // invalidates via cancel()/close() defaults.
+        recognizerView.reset(preserveFastResidency = true)
 
         //yield()
         recognizerView.start()
@@ -231,8 +239,9 @@ private class VoiceInputActionWindow(
     override fun close(): CloseResult {
         inputTransaction.cancel()
         runBlocking { initJob.cancelAndJoin() }
-        recognizerView.value?.cancel()
-        state.modelManager.cancelAll()
+        if (wasFinished) recognizerView.value?.closeCompleted()
+        else recognizerView.value?.cancel()
+        state.modelManager.cancelAll(preserveFastResidency = wasFinished)
         return CloseResult.Default
     }
 
@@ -309,7 +318,7 @@ val VoiceInputAction = Action(icon = R.drawable.mic_fill,
     windowImpl = { manager, persistentState ->
         val locales = manager.getActiveLocales()
 
-        val model = ResourceHelper.tryFindingVoiceInputModelForLocale(manager.getContext(), locales.firstOrNull() ?: Locale.ROOT)
+        val model = ResourceHelper.tryFindingVoiceInputModelForActiveLocales(manager.getContext(), locales)
 
         if(model == null) {
             VoiceInputNoModelWindow(locales.firstOrNull() ?: Locale.ROOT)

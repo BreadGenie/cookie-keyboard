@@ -1,7 +1,9 @@
 package org.futo.voiceinput.shared.whisper
 
+import java.util.Locale
+
 private fun createBlankResultPermutations(blankResults: List<String>): HashSet<String> {
-    val blankResultsResult = blankResults.map { it.lowercase() }.toMutableList()
+    val blankResultsResult = blankResults.map { it.lowercase(Locale.ROOT) }.toMutableList()
 
     blankResultsResult += blankResultsResult.map {
         it.replace("(", "[").replace(")", "]")
@@ -10,7 +12,7 @@ private fun createBlankResultPermutations(blankResults: List<String>): HashSet<S
         it.replace(" ", "_")
     }
 
-    return blankResultsResult.map { it.lowercase() }.toHashSet()
+    return blankResultsResult.map { it.lowercase(Locale.ROOT) }.toHashSet()
 }
 
 private val EMPTY_RESULTS = createBlankResultPermutations(
@@ -23,5 +25,5 @@ private val EMPTY_RESULTS = createBlankResultPermutations(
 )
 
 fun isBlankResult(result: String): Boolean {
-    return EMPTY_RESULTS.contains(result)
+    return EMPTY_RESULTS.contains(result.trim().lowercase(Locale.ROOT))
 }

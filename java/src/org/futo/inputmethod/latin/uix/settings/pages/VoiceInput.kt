@@ -1,5 +1,16 @@
 package org.futo.inputmethod.latin.uix.settings.pages
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.runtime.*
+import android.content.ClipData
+import android.content.ClipboardManager
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
+import org.futo.voiceinput.shared.opencl.OpenClCapabilities
+import org.futo.voiceinput.shared.opencl.OpenClCapabilityGate
+import org.futo.voiceinput.shared.opencl.OpenClDiagnostics
+import org.futo.voiceinput.shared.opencl.OpenClResources
 import android.view.inputmethod.InputMethodManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -12,6 +23,8 @@ import org.futo.inputmethod.latin.uix.ANIMATE_BUBBLE
 import org.futo.inputmethod.latin.uix.AUDIO_FOCUS
 import org.futo.inputmethod.latin.uix.CAN_EXPAND_SPACE
 import org.futo.inputmethod.latin.uix.DISALLOW_SYMBOLS
+import org.futo.inputmethod.latin.uix.EXPERIMENTAL_OPENCL
+import org.futo.inputmethod.latin.uix.EXPERIMENTAL_OPENCL_FAST
 import org.futo.inputmethod.latin.uix.ENABLE_SOUND
 import org.futo.inputmethod.latin.uix.PREFER_BLUETOOTH
 import org.futo.inputmethod.latin.uix.SYSTEM_VOICE_INPUT_PACKAGE
@@ -27,9 +40,47 @@ import org.futo.inputmethod.latin.uix.settings.useDataStore
 import org.futo.inputmethod.latin.uix.settings.useDataStoreValue
 import org.futo.inputmethod.latin.uix.settings.userSettingNavigationItem
 import org.futo.inputmethod.latin.uix.settings.userSettingToggleDataStore
+import kotlinx.coroutines.launch
 
 private val visibilityCheckNotSystemVoiceInput = @Composable {
     useDataStoreValue(USE_SYSTEM_VOICE_INPUT) == false
+}
+
+/**
+ * v44: the settings page starts one bounded, isolated capability probe. While
+ * it is unknown (including malformed/timeout/death), no OpenCL toggle is
+ * rendered; only a supported result reveals the controls. The process cache
+ * means each item's LaunchedEffect reuses the same result instead of binding
+ * again per recomposition.
+ */
+@Composable
+private fun rememberOpenClCapabilities(): OpenClCapabilities? {
+    val context = LocalContext.current
+    // v45: every row observes the one process result, so the bounded retry
+    // updates visibility and the status line together instead of leaving
+    // stale hidden controls behind.
+    val shared by OpenClCapabilityGate.updates.collectAsState()
+    LaunchedEffect(context) {
+        OpenClCapabilityGate.ensure(context)
+    }
+    return shared ?: OpenClCapabilityGate.peek()
+}
+
+private val visibilityCheckOpenCl = @Composable {
+    useDataStoreValue(USE_SYSTEM_VOICE_INPUT) == false &&
+        rememberOpenClCapabilities()?.controlsVisible == true
+}
+
+private val visibilityCheckFastDictation = @Composable {
+    useDataStoreValue(USE_SYSTEM_VOICE_INPUT) == false &&
+        useDataStoreValue(EXPERIMENTAL_OPENCL) == true &&
+        rememberOpenClCapabilities()?.controlsVisible == true
+}
+
+/** v45: content-free status when the capability controls are hidden. */
+private val visibilityCheckOpenClStatus = @Composable {
+    useDataStoreValue(USE_SYSTEM_VOICE_INPUT) == false &&
+        rememberOpenClCapabilities()?.controlsVisible != true
 }
 
 private data class VoiceIMEInfo(
@@ -115,6 +166,52 @@ val VoiceInputMenu = UserSettingsMenu(
                         currOption?.name ?: externalPkg.value))
             }
         },
+
+        userSettingToggleDataStore(
+            title = R.string.voice_input_experimental_opencl,
+            subtitle = R.string.voice_input_experimental_opencl_summary,
+            setting = EXPERIMENTAL_OPENCL
+        ).copy(visibilityCheck = visibilityCheckOpenCl),
+
+        userSettingToggleDataStore(
+            title = R.string.voice_input_experimental_opencl_fast,
+            subtitle = R.string.voice_input_experimental_opencl_fast_summary,
+            setting = EXPERIMENTAL_OPENCL_FAST
+        ).copy(visibilityCheck = visibilityCheckFastDictation),
+
+        UserSetting(name = R.string.voice_input_opencl_timings) {
+            val context = LocalContext.current
+            val enabled = useDataStoreValue(EXPERIMENTAL_OPENCL)
+            LaunchedEffect(enabled) { if (!enabled) OpenClResources.releaseIdle() }
+            // v21: turning Fast off retires fast-mode residency only (next
+            // fast request cold-verifies); normal-GPU idle bindings and any
+            // in-flight request are untouched.
+            val fast = useDataStoreValue(EXPERIMENTAL_OPENCL_FAST)
+            LaunchedEffect(fast) { if (!fast) OpenClResources.releaseFast() }
+            TextButton(onClick = {
+                context.getSystemService(ClipboardManager::class.java).setPrimaryClip(
+                    ClipData.newPlainText("Voice timing diagnostics", OpenClDiagnostics.export(context)))
+            }) { Text(stringResource(R.string.voice_input_opencl_timings)) }
+        }.copy(visibilityCheck = visibilityCheckOpenCl),
+
+        // v45: when the controls stay hidden, show only the fixed capability
+        // status/reason labels. This is the phone evidence needed to tell a
+        // real unsupported driver from a transient probe failure. No device
+        // name, model, path, audio, or transcript data is included.
+        UserSetting(name = R.string.voice_input_opencl_status, appearsInSearch = false) {
+            val context = LocalContext.current
+            val capabilities = rememberOpenClCapabilities()
+            val scope = rememberCoroutineScope()
+            Column {
+                Tip(capabilities?.diagnostic()
+                    ?: stringResource(R.string.voice_input_opencl_status_checking))
+                if (capabilities?.retryable == true) {
+                    TextButton(onClick = {
+                        scope.launch { OpenClCapabilityGate.retryTransient(context) }
+                    }) { Text(stringResource(R.string.voice_input_opencl_retry)) }
+                }
+            }
+        }.copy(visibilityCheck = visibilityCheckOpenClStatus),
 
         //if(!systemVoiceInput.value) {
         userSettingToggleDataStore(

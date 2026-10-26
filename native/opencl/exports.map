@@ -1,0 +1,1 @@
+{ global: Java_org_futo_voiceinput_shared_opencl_NativeOpenCl_*; Java_org_futo_voiceinput_shared_opencl_NativeOpenClEncoderFlash_*; Java_org_futo_voiceinput_shared_opencl_NativeOpenClCapability_*; local: *; };

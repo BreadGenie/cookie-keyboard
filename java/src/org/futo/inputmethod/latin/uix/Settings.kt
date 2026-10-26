@@ -242,6 +242,7 @@ val Context.isDirectBootUnlocked: Boolean
 class DataStoreHelper {
     @OptIn(DelicateCoroutinesApi::class)
     companion object {
+        @Volatile
         private var initialized: Boolean = false
         private var currentPreferences: Preferences = preferencesOf()
 
@@ -262,6 +263,15 @@ class DataStoreHelper {
                 }
             }
         }
+
+        /**
+         * Read-only debug visibility into whether [init] has run in this
+         * process. The comparison Activity can otherwise query an empty
+         * pre-init cache and report the builtin fallback even when an import
+         * exists. This accessor changes no setting, cache or behavior.
+         */
+        @JvmStatic
+        fun isInitializedForDebug(): Boolean = initialized
 
         @JvmStatic
         fun<T> getSettingOrNull(key: Preferences.Key<T>): T? = currentPreferences[key]
