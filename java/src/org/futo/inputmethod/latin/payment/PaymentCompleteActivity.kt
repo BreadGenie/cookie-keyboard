@@ -20,6 +20,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
 import org.futo.inputmethod.latin.R
+import org.futo.inputmethod.latin.BuildConfig
 import org.futo.inputmethod.latin.uix.dataStore
 import org.futo.inputmethod.latin.uix.getSetting
 import org.futo.inputmethod.latin.uix.settings.DataStoreCacheProvider
@@ -106,13 +107,13 @@ class PaymentCompleteActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         val targetData = intent.dataString
-        if(targetData == "futo-keyboard://kasroz") {
+        if(targetData == "${BuildConfig.PAYMENT_KEYBOARD_SCHEME}://kasroz") {
             SettingsActivity.openToNavDest(this, "kasroz")
             finish()
             return
         }
 
-        if((targetData?.startsWith("futo-keyboard://license/") == true) || (targetData?.startsWith("futo-voice-input://license/") == true)) {
+        if((targetData?.startsWith("${BuildConfig.PAYMENT_KEYBOARD_SCHEME}://license/") == true) || (targetData?.startsWith("${BuildConfig.PAYMENT_VOICE_SCHEME}://license/") == true)) {
             onPaid("activate")
         } else {
             Log.e("PaymentCompleteActivity", "futo-keyboard launched with invalid targetData $targetData")

@@ -3,23 +3,16 @@ package org.futo.inputmethod.latin.uix.settings
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -30,7 +23,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.KeyboardActions
@@ -39,10 +34,11 @@ import androidx.compose.foundation.text.appendInlineContent
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -50,6 +46,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
@@ -59,35 +56,29 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Alignment.Companion.CenterVertically
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
-import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.semantics.text
-import androidx.compose.ui.semantics.toggleableState
-import androidx.compose.ui.state.ToggleableState
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.TextRange
@@ -99,36 +90,43 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
+import kotlin.math.pow
 import org.futo.inputmethod.latin.R
-import org.futo.inputmethod.latin.uix.LocalKeyboardScheme
 import org.futo.inputmethod.latin.uix.LocalNavController
 import org.futo.inputmethod.latin.uix.SettingsKey
 import org.futo.inputmethod.latin.uix.getSettingBlocking
-import org.futo.inputmethod.latin.uix.theme.Typography
-import kotlin.math.pow
 
 @Composable
 fun ScreenTitle(title: String, showBack: Boolean = false, navController: NavHostController? = LocalNavController.current ?: rememberNavController()) {
-    val rowModifier = if(showBack) {
-        Modifier
-            .fillMaxWidth()
-            .clickable(onClickLabel = "Navigate back") {
-                navController!!.navigateUp()
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 8.dp),
+        verticalAlignment = CenterVertically
+    ) {
+        if (showBack) {
+            IconButton(onClick = { navController?.navigateUp() }) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Navigate back")
             }
-    } else {
-        Modifier.fillMaxWidth()
-    }
-    Row(modifier = rowModifier) {
-        Spacer(modifier = Modifier.width(16.dp))
-
-        if(showBack) {
-            Icon(Icons.Default.ArrowBack, contentDescription = null, modifier = Modifier.align(CenterVertically))
-            Spacer(modifier = Modifier.width(18.dp))
         }
-        Text(title, style = Typography.Heading.Medium, modifier = Modifier
-            .align(CenterVertically)
-            .padding(0.dp, 16.dp))
+        Text(
+            title,
+            style = if (showBack) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleMedium,
+            modifier = Modifier.weight(1f).padding(horizontal = 16.dp, vertical = 16.dp).semantics { heading() }
+        )
     }
+}
+
+/** A non-interactive category label; decorations stay outside search results. */
+@Composable
+fun SettingsSection(title: String) {
+    Text(
+        title,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 12.dp)
+            .semantics { heading() }
+    )
 }
 
 @Composable
@@ -138,7 +136,7 @@ fun ScreenTitleWithIcon(title: String, painter: Painter) {
 
         Icon(painter, contentDescription = null, modifier = Modifier.align(CenterVertically))
         Spacer(modifier = Modifier.width(18.dp))
-        Text(title, style = Typography.Heading.Medium, modifier = Modifier
+        Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier
             .align(CenterVertically)
             .padding(0.dp, 16.dp))
     }
@@ -150,12 +148,12 @@ fun Tip(text: String = "This is an example tip") {
     Surface(
         color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier
             .fillMaxWidth()
-            .padding(8.dp), shape = RoundedCornerShape(4.dp)
+            .padding(8.dp), shape = MaterialTheme.shapes.medium
     ) {
         Text(
             text,
-            modifier = Modifier.padding(8.dp),
-            style = Typography.Body.RegularMl,
+            modifier = Modifier.padding(16.dp),
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onPrimaryContainer
         )
     }
@@ -167,7 +165,7 @@ fun WarningTip(text: String = "This is an example tip") {
     Surface(
         color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier
             .fillMaxWidth()
-            .padding(8.dp), shape = RoundedCornerShape(4.dp)
+            .padding(8.dp), shape = MaterialTheme.shapes.medium
     ) {
 
         Text(
@@ -176,8 +174,8 @@ fun WarningTip(text: String = "This is an example tip") {
                 append(' ')
                 append(text)
             },
-            modifier = Modifier.padding(8.dp),
-            style = Typography.Body.RegularMl,
+            modifier = Modifier.padding(16.dp),
+            style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onErrorContainer,
             inlineContent = mapOf(
                 "icon" to InlineTextContent(
@@ -199,7 +197,6 @@ fun SpacedColumn(gap: Dp, modifier: Modifier = Modifier, horizontalAlignment: Al
         content()
     }
 }
-
 
 @Composable
 fun SettingItem(
@@ -231,108 +228,34 @@ fun SettingItem(
     }
 
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .defaultMinSize(0.dp, if(compact) { 48.dp } else { 68.dp })
+        modifier = modifier.fillMaxWidth()
+            .heightIn(min = if (compact) 48.dp else 64.dp)
             .let {
-                if(onClick != null && onSubmenuNavigate == null) {
-                    it.clickable(enabled = !disabled, onClick = {
-                        if (!disabled) {
-                            onClick()
-                        }
-                    })
-                } else if(onSubmenuNavigate != null) {
-                    it.clickable(enabled = !disabled, onClick = {
-                        if (!disabled) {
-                            onSubmenuNavigate()
-                        }
-                    })
-                } else {
-                    it
-                }
+                val action = onSubmenuNavigate ?: onClick
+                if (action != null) it.clickable(enabled = !disabled, onClick = action) else it
             }
-            .height(intrinsicSize = IntrinsicSize.Min),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 24.dp, vertical = 12.dp),
+        verticalAlignment = CenterVertically
     ) {
-        Row(Modifier.weight(1.0f).fillMaxHeight().padding(0.dp, 4.dp)) {
-            Spacer(Modifier.width(4.dp))
-            Spacer(Modifier.width(16.dp))
-            Column(
-                modifier = Modifier
-                    .width(48.dp)
-                    .align(Alignment.CenterVertically)
-            ) {
-                Box(modifier = Modifier.align(Alignment.CenterHorizontally)) {
-                    if (icon != null) {
-                        icon()
-                    }
-                }
+        if (icon != null) {
+            Box(Modifier.padding(end = 16.dp).width(48.dp).heightIn(min = 40.dp), contentAlignment = Alignment.Center) {
+                icon()
             }
-
-            Spacer(Modifier.width(12.dp))
-
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .align(Alignment.CenterVertically)
-                    .alpha(
-                        if (disabled) {
-                            0.5f
-                        } else {
-                            1.0f
-                        }
-                    )
-            ) {
-                SpacedColumn(4.dp) {
-                    Text(
-                        title,
-                        style = Typography.Heading.RegularMl,
-                        color = textColor,
-                        modifier = Modifier.heightIn(min = 24.dp)
-                    )
-
-                    if (subtitle != null) {
-                        Text(
-                            subtitle,
-                            style = Typography.SmallMl,
-                            color = subTextColor
-                        )
-                    } else if (subcontent != null) {
-                        subcontent()
-                    }
-                }
-            }
-            if(onSubmenuNavigate != null) { Spacer(Modifier.width(8.dp)) }
         }
-
-        if(onSubmenuNavigate != null) {
-            VerticalDivider(
-                Modifier.height(64.dp),
-                color = MaterialTheme.colorScheme.outline
-            )
-        } else {
-            Spacer(Modifier.width(4.dp))
-        }
-
-        Row(Modifier.let {
-            if(onSubmenuNavigate != null && onClick != null) {
-                it.clickable(enabled = !disabled, onClick = {
-                    if(!disabled) {
-                        onClick()
-                    }
-                })
+        Column(Modifier.weight(1f).alpha(if (disabled) 0.38f else 1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge, color = textColor)
+            if (subtitle != null) {
+                Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = subTextColor)
             } else {
-                it
+                subcontent?.invoke()
             }
-        }.fillMaxHeight()) {
-            if(onSubmenuNavigate != null) { Spacer(Modifier.width(8.dp)) }
-            Box(modifier = Modifier.align(Alignment.CenterVertically), contentAlignment = Alignment.Center) {
-                content()
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-            Spacer(Modifier.width(4.dp))
         }
+        if (onSubmenuNavigate != null) {
+            VerticalDivider(Modifier.padding(horizontal = 16.dp).height(32.dp), color = MaterialTheme.colorScheme.outlineVariant)
+        } else {
+            Spacer(Modifier.width(16.dp))
+        }
+        Box(contentAlignment = Alignment.Center) { content() }
     }
 }
 
@@ -350,31 +273,20 @@ fun SettingToggleRaw(
     SettingItem(
         title = title,
         subtitle = subtitle,
-        onClick = {
-            if (!disabled) {
-                setValue(!enabled)
-            }
-        },
         icon = icon,
-        modifier = Modifier.let {
-            if(onSubmenuNavigate == null) {
-                it.clearAndSetSemantics {
-                    this.text = AnnotatedString("$title. ${subtitle ?: ""}")
-                    this.role = Role.Switch
-                    this.toggleableState = ToggleableState(enabled)
-                }
-            } else {
-                it
-            }
-        },
+        disabled = disabled,
+        modifier = if (onSubmenuNavigate == null) {
+            Modifier.toggleable(value = enabled, enabled = !disabled, role = Role.Switch, onValueChange = setValue)
+        } else Modifier,
         onSubmenuNavigate = onSubmenuNavigate,
         compact = compact
     ) {
-        Switch(checked = enabled, onCheckedChange = {
-            if (!disabled) {
-                setValue(!enabled)
-            }
-        }, enabled = !disabled)
+        Switch(
+            checked = enabled,
+            onCheckedChange = if (onSubmenuNavigate == null) null else setValue,
+            enabled = !disabled,
+            modifier = if (onSubmenuNavigate != null) Modifier.semantics { contentDescription = title } else Modifier
+        )
     }
 }
 
@@ -451,17 +363,18 @@ fun<T> SettingRadio(
     subcontent: List<@Composable () -> Unit>? = null,
 ) {
     ScreenTitle(title, showBack = false)
-    Column {
+    Column(Modifier.selectableGroup()) {
         options.zip(optionNames).forEachIndexed { i, it ->
-            SettingItem(title = it.second, onClick = { setting.setValue(it.first) }, icon = {
-                RadioButton(selected = setting.value == it.first, onClick = null)
-            }, modifier = modifier.clearAndSetSemantics {
-                this.text = AnnotatedString(it.second)
-                this.role = Role.RadioButton
-                this.selected = setting.value == it.first
-            }, subcontent = subcontent?.getOrNull(i)) {
-                hints?.getOrNull(i)?.invoke()
-            }
+            SettingItem(
+                title = it.second,
+                icon = { RadioButton(selected = setting.value == it.first, onClick = null) },
+                modifier = modifier.selectable(
+                    selected = setting.value == it.first,
+                    role = Role.RadioButton,
+                    onClick = { setting.setValue(it.first) }
+                ),
+                subcontent = subcontent?.getOrNull(i)
+            ) { hints?.getOrNull(i)?.invoke() }
         }
     }
 }
@@ -508,7 +421,7 @@ fun<T: Number> SettingSliderForDataStoreItem(
     Column {
         ScreenTitle(title, showBack = false)
         if(subtitle != null) {
-            Text(subtitle, style = Typography.Body.MediumMl, modifier = Modifier.padding(12.dp, 0.dp))
+            Text(subtitle, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(24.dp, 0.dp))
         }
         Row(modifier = Modifier.padding(16.dp, 0.dp)) {
             if (isTextFieldVisible) {
@@ -534,6 +447,7 @@ fun<T: Number> SettingSliderForDataStoreItem(
                     onValueChange = { textFieldValue = it },
                     modifier = Modifier
                         .weight(0.33f)
+                        .heightIn(min = 48.dp)
                         .align(CenterVertically)
                         .focusRequester(focusRequester)
                         .onFocusChanged {
@@ -547,7 +461,7 @@ fun<T: Number> SettingSliderForDataStoreItem(
                         }
                     ),
                     singleLine = true,
-                    textStyle = Typography.SmallMl.copy(color = MaterialTheme.colorScheme.onBackground),
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary)
                 )
             } else {
@@ -555,12 +469,13 @@ fun<T: Number> SettingSliderForDataStoreItem(
                     text = indicator(value),
                     modifier = Modifier
                         .weight(0.33f)
+                        .heightIn(min = 48.dp)
                         .align(Alignment.CenterVertically)
                         .clickable {
                             hasTextFieldFocusedYet = false
                             isTextFieldVisible = true
                         },
-                    style = Typography.SmallMl
+                    style = MaterialTheme.typography.bodyMedium
                 )
             }
             Slider(
@@ -576,8 +491,6 @@ fun<T: Number> SettingSliderForDataStoreItem(
         }
     }
 }
-
-
 
 @Composable
 fun<T: Number> SettingSlider(
@@ -657,7 +570,6 @@ fun SettingListLazy(content: LazyListScope.() -> Unit) {
     }
 }
 
-
 enum class NavigationItemStyle {
     HomePrimary,
     HomeSecondary,
@@ -675,49 +587,25 @@ fun NavigationItem(title: String, style: NavigationItemStyle, navigate: () -> Un
         subtitle = subtitle,
         onClick = navigate,
         compact = compact,
-        icon = {
-            icon?.let {
-                val circleColor = when(style) {
-                    NavigationItemStyle.HomePrimary -> MaterialTheme.colorScheme.primaryContainer
-                    NavigationItemStyle.HomeSecondary -> MaterialTheme.colorScheme.secondaryContainer
-                    NavigationItemStyle.HomeTertiary -> MaterialTheme.colorScheme.tertiaryContainer
-
-                    NavigationItemStyle.MiscNoArrow,
-                    NavigationItemStyle.Misc,
-                    NavigationItemStyle.ExternalLink,
-                    NavigationItemStyle.Mail -> Color.Transparent
-                }
-
-                val iconColor = when(style) {
-                    NavigationItemStyle.HomePrimary -> MaterialTheme.colorScheme.onPrimaryContainer
-                    NavigationItemStyle.HomeSecondary -> MaterialTheme.colorScheme.onSecondaryContainer
-                    NavigationItemStyle.HomeTertiary -> MaterialTheme.colorScheme.onTertiaryContainer
-
-                    NavigationItemStyle.MiscNoArrow,
-                    NavigationItemStyle.Mail,
-                    NavigationItemStyle.ExternalLink,
-                    NavigationItemStyle.Misc -> LocalContentColor.current.copy(alpha = 0.75f)
-                }
-
-                Canvas(modifier = Modifier.size(48.dp)) {
-                    drawCircle(circleColor, this.size.maxDimension / 2.4f)
-                    translate(
-                        left = this.size.width / 2.0f - icon.intrinsicSize.width / 2.0f,
-                        top = this.size.height / 2.0f - icon.intrinsicSize.height / 2.0f
-                    ) {
-                        with(icon) {
-                            draw(icon.intrinsicSize, colorFilter = ColorFilter.tint(iconColor))
-                        }
-                    }
-                }
+        icon = icon?.let { painter -> {
+            val home = style == NavigationItemStyle.HomePrimary ||
+                style == NavigationItemStyle.HomeSecondary || style == NavigationItemStyle.HomeTertiary
+            Box(
+                Modifier.size(40.dp).background(
+                    if (home) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+                    MaterialTheme.shapes.medium
+                ), contentAlignment = Alignment.Center
+            ) {
+                Icon(painter, contentDescription = null, modifier = Modifier.size(24.dp),
+                    tint = if (home) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        }
+        } }
     ) {
-        when(style) {
-            NavigationItemStyle.Misc -> Icon(Icons.Default.ArrowForward, contentDescription = null)
+        when (style) {
             NavigationItemStyle.Mail -> Icon(Icons.Default.Send, contentDescription = null)
             NavigationItemStyle.ExternalLink -> Icon(painterResource(R.drawable.external_link), contentDescription = null)
-            else -> {}
+            else -> Icon(painterResource(R.drawable.chevron_right), contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -748,76 +636,14 @@ fun SettingTextField(title: String, placeholder: String, field: SettingsKey<Stri
     )
 }
 
-/*
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun<T> DropDownPicker(
-    label: String,
-    options: List<T>,
-    selection: T?,
-    onSet: (T) -> Unit,
-    getDisplayName: (T) -> String,
-    modifier: Modifier = Modifier
-) {
-    var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = {
-            expanded = !expanded
-        },
-        modifier = modifier
-    ) {
-        TextField(
-            readOnly = true,
-            value = selection?.let(getDisplayName) ?: "None",
-            onValueChange = { },
-            label = if (label.isNotBlank()) {
-                { Text(label) }
-            } else {
-                null
-            },
-            trailingIcon = {
-                ExposedDropdownMenuDefaults.TrailingIcon(
-                    expanded = expanded
-                )
-            },
-            colors = ExposedDropdownMenuDefaults.textFieldColors(
-                focusedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                focusedLeadingIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                focusedIndicatorColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                focusedTrailingIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            ),
-            modifier = Modifier.menuAnchor()
-        )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = {
-                expanded = false
-            }
-        ) {
-            options.forEach { selectionOption ->
-                DropdownMenuItem(
-                    text = {
-                        Text(getDisplayName(selectionOption))
-                    },
-                    onClick = {
-                        onSet(selectionOption)
-                        expanded = false
-                    }
-                )
-            }
-        }
-    }
-}*/
-
 @Composable
 fun CollapsibleSection(title: String, modifier: Modifier = Modifier, section: @Composable ColumnScope.() -> Unit) {
     val resources = LocalResources.current
-    var expanded by remember { mutableStateOf(false) }
+    var expanded by rememberSaveable { mutableStateOf(false) }
 
-    Column {
+    Column(modifier) {
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable {
+            Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable {
                 expanded = !expanded
             }.padding(16.dp).semantics {
                 stateDescription = resources.getString(
@@ -826,7 +652,7 @@ fun CollapsibleSection(title: String, modifier: Modifier = Modifier, section: @C
                     else
                         R.string.setting_section_collapsed
                 )
-                role = Role.DropdownList
+                role = Role.Button
             }
         ) {
             RotatingChevronIcon(expanded, tint = LocalContentColor.current)
@@ -835,7 +661,7 @@ fun CollapsibleSection(title: String, modifier: Modifier = Modifier, section: @C
 
             Text(
                 text = title,
-                style = Typography.Body.Regular,
+                style = MaterialTheme.typography.titleSmall,
                 color = LocalContentColor.current,
                 modifier = Modifier.weight(1.0f)
             )
@@ -849,8 +675,43 @@ fun CollapsibleSection(title: String, modifier: Modifier = Modifier, section: @C
     }
 }
 
+/** Material single-choice dialog shared by picker rows and standalone pickers. */
+@Composable
+private fun<T> SettingsChoiceDialog(
+    title: String?,
+    options: List<T>,
+    selection: T?,
+    onSet: (T) -> Unit,
+    getDisplayName: (T) -> String,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = title?.let { { Text(it) } },
+        text = {
+            Column(Modifier.heightIn(max = 400.dp).verticalScroll(rememberScrollState()).selectableGroup()) {
+                options.forEach { option ->
+                    Row(
+                        Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                            .selectable(selected = selection == option, role = Role.RadioButton, onClick = {
+                                onSet(option)
+                                onDismiss()
+                            }).padding(vertical = 12.dp),
+                        verticalAlignment = CenterVertically
+                    ) {
+                        RadioButton(selected = selection == option, onClick = null)
+                        Spacer(Modifier.width(16.dp))
+                        Text(getDisplayName(option), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(androidx.compose.ui.res.stringResource(android.R.string.cancel)) }
+        }
+    )
+}
 
-private val DropDownShape = RoundedCornerShape(12.dp)
 @Composable
 fun<T> DropDownPicker(
     options: List<T>,
@@ -860,96 +721,19 @@ fun<T> DropDownPicker(
     scrollableOptions: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    val resources = LocalResources.current
-    var expanded by remember { mutableStateOf(false) }
-
-    SpacedColumn(4.dp, modifier = modifier.semantics {
-        role = Role.DropdownList
-    }) {
-        Row(
-            Modifier.fillMaxWidth().background(
-                MaterialTheme.colorScheme.surfaceContainerHighest, DropDownShape
-            ).border(
-                if(expanded) { 2.dp } else { 1.dp },
-                MaterialTheme.colorScheme.outline,
-                DropDownShape
-            ).heightIn(min = 44.dp).clip(DropDownShape).clickable {
-                expanded = !expanded
-            }.padding(16.dp).semantics {
-                stateDescription = resources.getString(
-                    if(expanded)
-                        R.string.setting_section_expanded
-                    else
-                        R.string.setting_section_collapsed
-                )
-                role = Role.DropdownList
-            }
-        ) {
-            if(selection != null) {
-                Text(
-                    text = getDisplayName(selection),
-                    style = Typography.Body.Regular,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1.0f)
-                )
-            } else {
-                Spacer(Modifier.weight(1.0f))
-            }
-
-            RotatingChevronIcon(expanded, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-
-        AnimatedVisibility(expanded, enter = fadeIn(), exit = fadeOut()) {
-            val scrollState = rememberScrollState()
-            Column(Modifier.let {
-                if(scrollableOptions) {
-                    it.verticalScroll(scrollState)
-                } else {
-                    it
-                }
-            }) {
-                Spacer(Modifier.height(9.dp))
-                Column(
-                    Modifier.fillMaxWidth().background(
-                        MaterialTheme.colorScheme.surfaceContainerHighest, DropDownShape
-                    ).border(
-                        1.dp,
-                        MaterialTheme.colorScheme.outline,
-                        DropDownShape
-                    ).clip(DropDownShape)
-                ) {
-                    options.forEach {
-                        Box(
-                            Modifier.fillMaxWidth().heightIn(min = 44.dp).background(
-                                if(selection == it) {
-                                    LocalKeyboardScheme.current.onSurfaceTransparent
-                                } else {
-                                    Color.Transparent
-                                }
-                            ).clickable {
-                                onSet(it)
-                                expanded = false
-                            }.padding(16.dp).semantics {
-                                selected = selection == it
-                                role = Role.DropdownList
-                            }
-                        ) {
-                            Text(
-                                getDisplayName(it),
-                                style = Typography.Body.Regular,
-                                color = if(selection == it) {
-                                    MaterialTheme.colorScheme.onSurface
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                },
-                                modifier = Modifier.align(Alignment.CenterStart)
-                            )
-                        }
-                    }
-                }
-            }
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    Surface(
+        onClick = { expanded = true },
+        modifier = modifier.fillMaxWidth().heightIn(min = 48.dp),
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = CenterVertically) {
+            Text(selection?.let(getDisplayName).orEmpty(), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+            Icon(painterResource(R.drawable.chevron_down), contentDescription = null)
         }
     }
+    if (expanded) SettingsChoiceDialog(null, options, selection, onSet, getDisplayName) { expanded = false }
 }
 
 @Composable
@@ -962,16 +746,17 @@ fun<T> DropDownPickerSettingItem(
     modifier: Modifier = Modifier,
     icon: @Composable (() -> Unit)? = null,
 ) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
     SettingItem(
         title = label,
+        subtitle = selection?.let(getDisplayName),
+        onClick = { expanded = true },
         icon = icon,
-        subcontent = {
-            DropDownPicker(options, selection, onSet, getDisplayName)
-        },
         modifier = modifier
     ) {
-
+        Icon(painterResource(R.drawable.chevron_down), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+    if (expanded) SettingsChoiceDialog(label, options, selection, onSet, getDisplayName) { expanded = false }
 }
 
 @Composable
@@ -995,29 +780,19 @@ fun PrimarySettingToggleDataStoreItem(
 ) {
     val (enabled, setValue) = dataStoreItem
 
-    Box(Modifier.padding(24.dp)) {
-        Surface(
-            shape = RoundedCornerShape(48.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            modifier = Modifier.clearAndSetSemantics {
-                this.text = AnnotatedString(title)
-                this.role = Role.Switch
-                this.toggleableState = ToggleableState(enabled)
-            },
-            onClick = {
-                setValue(!enabled)
-            }
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp).fillMaxWidth()
+    ) {
+        Row(
+            Modifier.toggleable(value = enabled, role = Role.Switch, onValueChange = setValue)
+                .heightIn(min = 72.dp).padding(horizontal = 24.dp, vertical = 16.dp),
+            verticalAlignment = CenterVertically
         ) {
-            Row(Modifier.padding(24.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    title,
-                    style = Typography.Heading.RegularMl,
-                    modifier = Modifier.heightIn(min = 24.dp)
-                )
-                Spacer(Modifier.weight(1.0f))
-
-                Switch(checked = enabled, onCheckedChange = null)
-            }
+            Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            Spacer(Modifier.width(16.dp))
+            Switch(checked = enabled, onCheckedChange = null)
         }
     }
 }

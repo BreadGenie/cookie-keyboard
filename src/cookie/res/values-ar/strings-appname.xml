@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Release-only branding; keep upstream translations and v55 edits intact. -->
+    <string name="english_ime_name">لوحة مفاتيح Cookie</string>
+    <string name="spell_checker_service_name">مصحح إملائي Cookie</string>
+    <string name="english_ime_settings">إعدادات لوحة مفاتيح Cookie</string>
+    <string name="android_spell_checker_settings">إعدادات مصحح Cookie</string>
+</resources>

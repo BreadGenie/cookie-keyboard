@@ -14,10 +14,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,15 +50,16 @@ fun SetupContainer(inner: @Composable () -> Unit) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(0.75f)
+                .weight(0.75f),
+            contentAlignment = Alignment.Center
         ) {
-            Icon(
+            Image(
                 painter = painterResource(id = R.drawable.ic_launcher_foreground),
                 contentDescription = null,
                 modifier = Modifier
-                    .matchParentSize()
-                    .align(Alignment.Center),
-                tint = MaterialTheme.colorScheme.onBackground
+                    .size(192.dp)
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop
             )
         }
 

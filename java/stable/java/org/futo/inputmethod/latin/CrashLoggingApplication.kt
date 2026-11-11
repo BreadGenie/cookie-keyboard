@@ -51,7 +51,7 @@ class CrashLoggingApplication : Application() /*, Configuration.Provider*/ {
             }
         }
 
-        if(BuildConfig.DEBUG) return
+        if(BuildConfig.DEBUG || !BuildConfig.ENABLE_ACRA) return
 
         val userManager = getSystemService(Context.USER_SERVICE) as UserManager
         if(userManager.isUserUnlocked) {

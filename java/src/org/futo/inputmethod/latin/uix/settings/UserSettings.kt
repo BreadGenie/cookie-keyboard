@@ -2,7 +2,11 @@ package org.futo.inputmethod.latin.uix.settings
 
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavHostController
@@ -131,8 +135,13 @@ fun UserSettingsMenu.render(showBack: Boolean = true, showTitle: Boolean = true)
 
 @Composable
 fun UserSettingsMenuScreen(menu: UserSettingsMenu) {
-    ScrollableList {
-        menu.render()
-        BottomSpacer()
+    Surface {
+        Column(Modifier.fillMaxSize()) {
+            ScreenTitle(stringResource(menu.title), showBack = true)
+            ScrollableList(Modifier.weight(1f)) {
+                menu.render(showTitle = false)
+                BottomSpacer()
+            }
+        }
     }
 }

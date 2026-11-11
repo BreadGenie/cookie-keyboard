@@ -1,0 +1,17 @@
+<resources>
+    <string name="settings_section_input">Input</string>
+    <string name="settings_section_personalize">Personalization</string>
+    <string name="settings_section_app">App and support</string>
+    <string name="voice_settings_section_provider">Voice input provider</string>
+    <string name="voice_settings_section_audio">Microphone and audio</string>
+    <string name="voice_settings_section_recognition">Recognition</string>
+    <string name="voice_settings_section_acceleration">Acceleration</string>
+    <string name="voice_settings_diagnostics">Advanced and diagnostics</string>
+    <string name="voice_settings_gpu_checking">Checking GPU support…</string>
+    <string name="voice_settings_gpu_supported">This device supports OpenCL. Model and language requirements still apply.</string>
+    <string name="voice_settings_gpu_unsupported">GPU acceleration is not supported by this driver. Voice input uses the standard CPU engine.</string>
+    <string name="voice_settings_gpu_unavailable">GPU acceleration is unavailable on this device or build. Voice input uses the standard CPU engine.</string>
+    <string name="voice_settings_gpu_unknown">GPU support could not be checked. Voice input can still use the standard CPU engine.</string>
+    <string name="voice_settings_copy_capability">Copy technical status</string>
+    <string name="voice_settings_opencl_details">OpenCL is experimental and requires the English-244 model with English-only keyboard languages. Other models use the standard CPU engine. The model prewarms while recording and may stay loaded for up to 5 idle minutes. Android or memory pressure may release it sooner. A cold load may take 20 seconds. The GPU engine runs in a separate process; driver failures may end recognition. Turning GPU acceleration off uses the standard FUTO engine.</string>
+</resources>

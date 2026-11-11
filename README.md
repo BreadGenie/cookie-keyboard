@@ -190,3 +190,62 @@ SHA1: 5D:15:B3:6E:C9:6A:96:28:41:09:DD:62:93:0D:9C:39:9F:5F:06:43
 SHA-256: 74:3F:AD:58:64:AB:C4:26:50:0B:2D:C2:C4:7C:8A:D3:24:CB:CD:16:03:3F:80:16:99:48:41:35:63:74:F9:95
 
 ```
+# Cookie signed release candidate (v56)
+
+The active Cookie candidate is `cookieRelease`, version `0.1.0-rc1` (code 56),
+package `io.github.breadgenie.cookie`. It includes the current v55 branding and
+settings work, with R8 minification and `debuggable=false`. It is a candidate
+awaiting OnePlus installation, IME binding, typing, dictation, and navigation
+acceptance. It installs beside the debug and official FUTO apps; settings and
+downloaded models do not migrate automatically. Enable and select Cookie in
+Android's keyboard settings, grant microphone access, and provision its models.
+
+Use the existing local toolchain from the parent workspace:
+
+```sh
+source ../scripts/env.sh
+export COOKIE_SIGNING_PROPERTIES="$HOME/.local/share/cookie/signing/keystore.properties"
+./gradlew --offline --max-workers=2 assembleCookieRelease -PexperimentalOpenClNative=true
+```
+
+This ordinary command builds native code. To reproduce v56 with the proven v55
+native bytes already present in this workspace, first verify all nine libraries
+and both OpenCL license assets, then stage just the stock JNI library:
+
+```sh
+python3 tools/release/verify-native-reuse.py
+./gradlew --offline --max-workers=2 assembleCookieRelease \
+  -PexperimentalOpenClNative=true -x prepareExperimentalOpenCl \
+  -PcookieVerifiedNativeDir=build/cookie-release-native
+```
+
+Do not skip native work without running the verifier successfully. The final
+APK must match all nine baseline native hashes. The output is
+`build/outputs/apk/cookie/release/futo-keyboard-cookie-release.apk`.
+Release builds require private signing and reject the upstream shared debug
+certificate. Missing configuration fails the release prebuild; debug builds
+continue to use the upstream debug key without needing private configuration.
+`-PcookieSigningProperties=/absolute/private/path/keystore.properties` also
+selects the config. A local ignored `keystore.properties` is the final fallback.
+The properties are `storeFile` (absolute key path), `storePassword`, `keyAlias`,
+and `keyPassword`. Never put their values in shell arguments, logs, or Git.
+
+The owner's RSA-4096 key is stored privately at
+`~/.local/share/cookie/signing/cookie-release.p12`, alias `cookie`; its passwords
+are in `~/.local/share/cookie/signing/keystore.properties`. The directory is mode
+0700 and both files are mode 0600. **Back up both files together to private,
+secure storage.** Losing the key/password prevents compatible future updates;
+keep the same key for every later Cookie release. Do not regenerate it on a
+failed build, put it in an artifact directory, or upload it with an APK.
+
+Cookie release certificate SHA-256 (public):
+`8244d1c4361f4458d038cb4662dd72572172e85a1c7b2d1e8828908f3936b661`.
+
+Cookie keeps FUTO's licensing, payment notices, and attribution. Its payment
+deep links use `cookie-keyboard` / `cookie-voice-input` to avoid claiming FUTO's
+callbacks; the upstream checkout and manual license entry remain available.
+Cookie does not offer upstream APK updates. ACRA is disabled in release builds
+and no crash-report credentials are embedded. CPU remains the default;
+experimental OpenCL and guarded Fast dictation retain their v55 behavior.
+Benchmark activities, comparison fixtures, and debug agents are excluded from
+the release source sets. Phone/performance acceptance remains pending.

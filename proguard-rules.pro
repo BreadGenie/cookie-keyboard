@@ -67,3 +67,8 @@
 
 # Keep swipe
 -keep class org.futo.ml.inference.** { *; }
+
+# These field names and constructor descriptors are read by native JNI code.
+# -dontobfuscate alone does not prevent R8 from removing or optimizing members.
+-keep class org.futo.inputmethod.latin.utils.WordInputEventForPersonalization { *; }
+-keep class org.futo.inputmethod.latin.xlm.ModelInfo { *; }

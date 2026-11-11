@@ -76,39 +76,24 @@ class ActionInputTransactionIME(val helper: IMEHelper) : IMEInterface, ActionInp
         afterCursor = ic?.getTextAfterCursor(Constants.VOICE_INPUT_CONTEXT_SIZE, 0)
     )
 
-    private var isFinished = false
-    private var partialText = ""
+    private val textTransaction = ActionTextTransaction(
+        prepare = { helper.requestCursorUpdate() },
+        writePartial = { text ->
+            ic?.setComposingText(text, 1)
+            (ic as? InputConnectionInternalComposingWrapper)?.send()
+        },
+        writeFinal = { text -> ic?.commitText(text, 1) },
+        finish = {
+            helper.endInputTransaction(this)
+            (ic as? InputConnectionInternalComposingWrapper)?.send()
+        }
+    )
+
     override fun updatePartial(text: String) {
-        if (isFinished || !useComposingMode) return
-        helper.requestCursorUpdate()
-        partialText = text
-        ic?.setComposingText(
-            partialText,
-            1
-        )
-
-        (ic as? InputConnectionInternalComposingWrapper)?.send()
+        if (useComposingMode) textTransaction.updatePartial(text)
     }
 
-    override fun commit(text: String) {
-        if (isFinished) return
-        helper.requestCursorUpdate()
-        isFinished = true
-        ic?.commitText(
-            text,
-            1
-        )
-        helper.endInputTransaction(this)
-        (ic as? InputConnectionInternalComposingWrapper)?.send()
-    }
-
-    override fun cancel() {
-        helper.requestCursorUpdate()
-        commit(partialText)
-        (ic as? InputConnectionInternalComposingWrapper)?.send()
-    }
-
-    fun ensureFinished() {
-        isFinished = true
-    }
+    override fun commit(text: String) = textTransaction.commit(text)
+    override fun cancel() = textTransaction.cancel()
+    fun ensureFinished() = textTransaction.invalidate()
 }

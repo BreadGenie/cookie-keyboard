@@ -38,13 +38,13 @@ import org.futo.inputmethod.latin.uix.TextEditPopupActivity
 import org.futo.inputmethod.latin.uix.USE_SYSTEM_VOICE_INPUT
 import org.futo.inputmethod.latin.uix.settings.NavigationItem
 import org.futo.inputmethod.latin.uix.settings.NavigationItemStyle
+import org.futo.inputmethod.latin.uix.settings.SettingsSection
 import org.futo.inputmethod.latin.uix.settings.UserSetting
 import org.futo.inputmethod.latin.uix.settings.UserSettingsMenu
 import org.futo.inputmethod.latin.uix.settings.render
 import org.futo.inputmethod.latin.uix.settings.useDataStoreValue
 import org.futo.inputmethod.latin.uix.settings.userSettingDecorationOnly
 import org.futo.inputmethod.latin.uix.settings.userSettingNavigationItem
-import org.futo.inputmethod.latin.uix.theme.Typography
 import org.futo.inputmethod.updates.ConditionalMigrateUpdateNotice
 import org.futo.inputmethod.updates.openManualUpdateCheck
 
@@ -69,11 +69,7 @@ val HomeScreenLite = UserSettingsMenu(
 
         },
 
-        userSettingNavigationItem(
-            title = R.string.settings_check_for_updates_manually,
-            style = NavigationItemStyle.Misc,
-            navigate = { nav -> nav.context.openManualUpdateCheck() }
-        ),
+        userSettingDecorationOnly { SettingsSection(stringResource(R.string.settings_section_input)) },
 
         userSettingNavigationItem(
             title = R.string.language_settings_title,
@@ -122,6 +118,8 @@ val HomeScreenLite = UserSettingsMenu(
             )
         },
 
+        userSettingDecorationOnly { SettingsSection(stringResource(R.string.settings_section_personalize)) },
+
         userSettingNavigationItem(
             title = R.string.action_settings_title,
             style = NavigationItemStyle.HomeSecondary,
@@ -136,7 +134,7 @@ val HomeScreenLite = UserSettingsMenu(
             icon = R.drawable.themes
         ),
 
-        //if(!isPaid) {
+        userSettingDecorationOnly { SettingsSection(stringResource(R.string.settings_section_app)) },
         userSettingNavigationItem(
             title = R.string.payment_screen_short_title,
             style = NavigationItemStyle.HomePrimary,
@@ -145,7 +143,6 @@ val HomeScreenLite = UserSettingsMenu(
         ).copy(visibilityCheck = {
             useDataStoreValue(IS_ALREADY_PAID) == false
         }, appearInSearchIfVisibilityCheckFailed = false),
-        //}
 
         userSettingNavigationItem(
             title = R.string.help_menu_title,
@@ -154,7 +151,6 @@ val HomeScreenLite = UserSettingsMenu(
             icon = R.drawable.help_circle
         ),
 
-        //if(isDeveloper || LocalInspectionMode.current) {
         userSettingNavigationItem(
             title = R.string.dev_settings_title,
             style = NavigationItemStyle.HomeTertiary,
@@ -163,12 +159,17 @@ val HomeScreenLite = UserSettingsMenu(
         ).copy(visibilityCheck = {
             useDataStoreValue(IS_DEVELOPER) == true || LocalInspectionMode.current
         }),
-        //}
 
         userSettingNavigationItem(
             title = R.string.misc_settings_title,
             style = NavigationItemStyle.MiscNoArrow,
             navigateTo = "misc",
+        ),
+
+        userSettingNavigationItem(
+            title = R.string.settings_check_for_updates_manually,
+            style = NavigationItemStyle.Misc,
+            navigate = { nav -> nav.context.openManualUpdateCheck() }
         ),
 
         userSettingNavigationItem(
@@ -184,7 +185,6 @@ val HomeScreenLite = UserSettingsMenu(
 fun HomeScreen(navController: NavHostController = rememberNavController()) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
-    val isDeveloper = useDataStoreValue(IS_DEVELOPER)
     val isPaid = useDataStoreValue(IS_ALREADY_PAID)
 
     Column {
@@ -194,9 +194,9 @@ fun HomeScreen(navController: NavHostController = rememberNavController()) {
                 .fillMaxWidth()
                 .verticalScroll(scrollState)
         ) {
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Row(Modifier.padding(16.dp)) {
-                Text(stringResource(R.string.english_ime_settings), style = Typography.Heading.Medium, modifier = Modifier
+                Text(stringResource(R.string.english_ime_settings), style = MaterialTheme.typography.headlineLarge, modifier = Modifier
                     .align(CenterVertically)
                     .weight(1.0f))
 
@@ -216,13 +216,12 @@ fun HomeScreen(navController: NavHostController = rememberNavController()) {
 
             HomeScreenLite.render(showTitle = false)
 
-
             Spacer(modifier = Modifier.height(16.dp))
 
             if(isPaid || LocalInspectionMode.current) {
                 Text(
                     stringResource(R.string.payment_paid_version_indicator),
-                    style = Typography.SmallMl,
+                    style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Center
                 )
@@ -231,7 +230,7 @@ fun HomeScreen(navController: NavHostController = rememberNavController()) {
 
             Text(
                 "v${BuildConfig.VERSION_NAME}",
-                style = Typography.Small,
+                style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.fillMaxWidth(),
                 textAlign = TextAlign.Center
             )
@@ -244,8 +243,8 @@ fun HomeScreen(navController: NavHostController = rememberNavController()) {
                 Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
             )
             context.startActivity(intent)
-        }, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.settings_try_typing_here), color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f), modifier = Modifier.fillMaxWidth())
+        }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+            Text(stringResource(R.string.settings_try_typing_here), color = MaterialTheme.colorScheme.primary)
         }
     }
 }
