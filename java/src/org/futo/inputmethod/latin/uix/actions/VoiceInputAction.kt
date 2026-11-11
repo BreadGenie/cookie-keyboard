@@ -145,6 +145,12 @@ private class VoiceInputActionWindow(
         shouldPlaySounds = enableSound
 
         return RecognizerViewSettings(
+            personalDictionary = {
+                if(context.getSetting(USE_PERSONAL_DICT)) {
+                    state.userDictionaryObserver.getWords(locales)
+                        .filter { it.shortcut.isNullOrEmpty() }.map { it.word }
+                } else emptyList()
+            },
             shouldShowInlinePartialResult = false,
             shouldShowVerboseFeedback = verboseFeedback,
             shouldAnimateBubble = animateBubble,
@@ -152,7 +158,10 @@ private class VoiceInputActionWindow(
                 primaryModel = primaryModel,
                 languageSpecificModels = languageSpecificModels,
                 experimentalOpenCl = context.getSetting(EXPERIMENTAL_OPENCL),
-                fastDictation = context.getSetting(EXPERIMENTAL_OPENCL_FAST)
+                fastDictation = context.getSetting(EXPERIMENTAL_OPENCL_FAST),
+                engine = org.futo.voiceinput.shared.RecognitionEngine.fromPreference(
+                    context.getSetting(org.futo.inputmethod.latin.uix.VOICE_INPUT_ENGINE),
+                    android.os.Build.VERSION.SDK_INT >= 27 && org.futo.voiceinput.shared.provisioning.ParakeetStore(context.filesDir).isReady())
             ),
             decodingConfiguration = DecodingConfiguration(
                 glossary = glossary,
@@ -170,6 +179,18 @@ private class VoiceInputActionWindow(
 
     private var recognizerView: MutableState<RecognizerView?> = mutableStateOf(null)
     private var modelException: MutableState<ModelDoesNotExistException?> = mutableStateOf(null)
+
+    private val inputTransaction = manager.createInputTransaction()
+    private val resultDelivery = VoiceResultDelivery(
+        dispatch = { delivery -> manager.getLifecycleScope().launch(Dispatchers.Main) { delivery() } },
+        sanitize = { result -> ModelOutputSanitizer.sanitize(result, inputTransaction.textContext) },
+        commit = { text -> inputTransaction.commit(text) },
+        cancelInput = { inputTransaction.cancel() },
+        completed = { result ->
+            if (result.isNotBlank()) manager.announce(result)
+            manager.closeActionWindow()
+        }
+    )
 
     private val initJob = manager.getLifecycleScope().launch(Dispatchers.Default) {
         yield()
@@ -201,8 +222,6 @@ private class VoiceInputActionWindow(
         //yield()
         recognizerView.start()
     }
-
-    private var inputTransaction = manager.createInputTransaction()
 
     @Composable
     private fun ModelDownloader(modelException: ModelDoesNotExistException) {
@@ -238,6 +257,7 @@ private class VoiceInputActionWindow(
     }
 
     override fun close(): CloseResult {
+        resultDelivery.invalidate()
         inputTransaction.cancel()
         runBlocking { initJob.cancelAndJoin() }
         if (wasFinished) recognizerView.value?.closeCompleted()
@@ -246,15 +266,18 @@ private class VoiceInputActionWindow(
         return CloseResult.Default
     }
 
-    private var wasFinished = false
+    private val wasFinished: Boolean get() = resultDelivery.isCompleted
     private var cancelPlayed = false
     override fun cancelled() {
-        if (!wasFinished) {
-            if (shouldPlaySounds && !cancelPlayed) {
-                state.soundPlayer?.playCancelSound()
-                cancelPlayed = true
+        resultDelivery.invalidate()
+        manager.getLifecycleScope().launch(Dispatchers.Main) {
+            if (!wasFinished) {
+                if (shouldPlaySounds && !cancelPlayed) {
+                    state.soundPlayer?.playCancelSound()
+                    cancelPlayed = true
+                }
+                inputTransaction.cancel()
             }
-            inputTransaction.cancel()
         }
     }
 
@@ -272,23 +295,9 @@ private class VoiceInputActionWindow(
         }
     }
 
-    override fun finished(result: String) {
-        wasFinished = true
+    override fun finished(result: String) = resultDelivery.deliver(result)
 
-        manager.getLifecycleScope().launch(Dispatchers.Main) {
-            val sanitized = ModelOutputSanitizer.sanitize(result, inputTransaction.textContext)
-            inputTransaction.commit(sanitized)
-            manager.announce(result)
-            manager.closeActionWindow()
-        }
-    }
-
-    override fun partialResult(result: String) {
-        manager.getLifecycleScope().launch(Dispatchers.Main) {
-            val sanitized = ModelOutputSanitizer.sanitize(result, inputTransaction.textContext)
-            inputTransaction.updatePartial(sanitized)
-        }
-    }
+    override fun partialResult(result: String) = resultDelivery.partialResult(result)
 
     override fun requestPermission(onGranted: () -> Unit, onRejected: () -> Unit): Boolean {
         return false

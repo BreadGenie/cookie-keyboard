@@ -12,8 +12,15 @@ local.properties
 crashreporting.properties
 keystore.properties
 key.jks
+*.jks
+*.p12
+*.keystore
+*.pem
 java/res/raw/mozc.data
 .cxx
 java/src/org/futo/inputmethod/keyboard/internal/KeyboardTextsTable.java
 
 atl/
+
+# Verified sherpa runtime download cache
+.cache/

@@ -85,3 +85,9 @@ val EXPERIMENTAL_OPENCL_FAST = SettingsKey(
     key = booleanPreferencesKey("experimental_opencl_fast"),
     default = false
 )
+
+// Stable engine identifiers; missing preferences resolve from verified Parakeet readiness. Cohere stays hidden.
+val VOICE_INPUT_ENGINE = SettingsKey(
+    key = androidx.datastore.preferences.core.stringPreferencesKey("voice_input_engine"),
+    default = ""
+)

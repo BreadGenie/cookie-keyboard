@@ -653,12 +653,14 @@ class LatinIME : InputMethodServiceCompose(), LatinIMELegacy.SuggestionStripCont
 
     override fun onWindowShown() {
         super.onWindowShown()
+        org.futo.voiceinput.shared.sherpa.SherpaResidency.keyboardVisible(true)
         latinIMELegacy.onWindowShown()
         updateColorsIfDynamicChanged()
     }
 
     override fun onWindowHidden() {
         super.onWindowHidden()
+        org.futo.voiceinput.shared.sherpa.SherpaResidency.keyboardVisible(false)
         latinIMELegacy.onWindowHidden()
         uixManager.onInputFinishing()
     }

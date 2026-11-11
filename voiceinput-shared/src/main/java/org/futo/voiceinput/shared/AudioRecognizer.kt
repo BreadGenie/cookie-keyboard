@@ -87,7 +87,8 @@ data class RecordingSettings(
 data class AudioRecognizerSettings(
     val modelRunConfiguration: MultiModelRunConfiguration,
     val decodingConfiguration: DecodingConfiguration,
-    val recordingConfiguration: RecordingSettings
+    val recordingConfiguration: RecordingSettings,
+    val personalDictionary: (() -> List<String>)? = null
 )
 
 class ModelDoesNotExistException(val models: List<ModelLoader>) : Throwable()
@@ -102,7 +103,21 @@ class AudioRecognizer(
     private var isRecording = false
     private var recorder: AudioRecord? = null
 
-    private val modelRunner = MultiModelRunner(modelManager)
+    private val recognizer = createFinalRecognizer(settings.modelRunConfiguration.engine,
+        sherpa = { org.futo.voiceinput.shared.provisioning.ProvisionedParakeetRecognizer(context) { (settings.personalDictionary?.invoke() ?: settings.decodingConfiguration.glossary).toList() } }) {
+        WhisperFinalRecognizer(MultiModelRunner(modelManager), settings.modelRunConfiguration,
+            settings.decodingConfiguration)
+    }
+
+    private val streaming get() = recognizer as? StreamingFinalRecognizer
+    private var streamedSamples = 0
+    private fun capturedSamples() = if(streaming != null) streamedSamples else floatSamples.position()
+    private fun capture(samples: ShortArray, count: Int) {
+        val pcm = FloatArray(count) { samples[it].toFloat() / Short.MAX_VALUE.toFloat() }
+        val target = streaming
+        if(target == null) floatSamples.put(pcm)
+        else try { target.feed(pcm); streamedSamples += count } finally { pcm.fill(0f) }
+    }
 
     private val canExpandSpace = settings.recordingConfiguration.canExpandSpace
     private val useVAD = settings.recordingConfiguration.useVADAutoStop
@@ -194,6 +209,7 @@ class AudioRecognizer(
 
     @Throws(ModelDoesNotExistException::class)
     private fun verifyModelsExist() {
+        if (settings.modelRunConfiguration.engine != RecognitionEngine.Whisper) return
         val modelsThatDoNotExist = mutableListOf<ModelLoader>()
 
         if (!settings.modelRunConfiguration.primaryModel.exists(context)) {
@@ -237,7 +253,7 @@ class AudioRecognizer(
         loadModelJob?.cancel()
         isRecording = false
 
-        modelRunner.cancelAll(preserveFastResidency)
+        recognizer.cancel(preserveFastResidency)
         releaseAdmission()
 
         unfocusAudio()
@@ -306,7 +322,7 @@ class AudioRecognizer(
     }
 
     private suspend fun preloadModels() {
-        modelRunner.preload(settings.modelRunConfiguration, settings.decodingConfiguration)
+        recognizer.preload()
     }
 
     private fun expandSpaceIfAllowed(): Boolean {
@@ -346,7 +362,7 @@ class AudioRecognizer(
             if (nRead <= 0) break
             yield()
 
-            var isRunningOutOfSpace = (floatSamples.remaining() < nRead.coerceAtLeast(1600)) && !expandSpaceIfAllowed()
+            var isRunningOutOfSpace = (streaming == null && floatSamples.remaining() < nRead.coerceAtLeast(1600)) && !expandSpaceIfAllowed()
 
             val hasNotTalkedRecently = hasTalked && (numConsecutiveNonSpeech > 66) && useVAD
             if (isRunningOutOfSpace || hasNotTalkedRecently) {
@@ -387,11 +403,11 @@ class AudioRecognizer(
                 }
             }
 
-            floatSamples.put(samples.sliceArray(0 until nRead).map { it.toFloat() / Short.MAX_VALUE.toFloat() }.toFloatArray())
+            capture(samples, nRead)
 
             // Don't set hasTalked if the start sound may still be playing, otherwise on some
             // devices the rms just explodes and `hasTalked` is always true
-            val startSoundPassed = (floatSamples.position() > 16000 * 0.6)
+            val startSoundPassed = (capturedSamples() > 16000 * 0.6)
             if (!startSoundPassed) {
                 numConsecutiveSpeech = 0
                 numConsecutiveNonSpeech = 0
@@ -409,7 +425,7 @@ class AudioRecognizer(
             }
 
             // Check if mic is blocked
-            val blockCheckTimePassed = (floatSamples.position() > 2 * 16000) // two seconds
+            val blockCheckTimePassed = (capturedSamples() > 2 * 16000) // two seconds
             if (!anyNoiseAtAll && canMicBeBlocked && blockCheckTimePassed) {
                 isMicBlocked = true
             }
@@ -437,14 +453,14 @@ class AudioRecognizer(
                     samples, 0, 1600, AudioRecord.READ_NON_BLOCKING
                 )
                 if (nRead2 > 0) {
-                    if (floatSamples.remaining() < nRead2 && !expandSpaceIfAllowed()) {
+                    if (streaming == null && floatSamples.remaining() < nRead2 && !expandSpaceIfAllowed()) {
                         yield()
                         withContext(Dispatchers.Main) {
                             finish()
                         }
                         break
                     }
-                    floatSamples.put(samples.sliceArray(0 until nRead2).map { it.toFloat() / Short.MAX_VALUE.toFloat() }.toFloatArray())
+                    capture(samples, nRead2)
                 } else {
                     break
                 }
@@ -478,12 +494,13 @@ class AudioRecognizer(
 
             recorderJob = lifecycleScope.launch {
                 withContext(Dispatchers.Default) {
-                    if(useVAD) {
-                        createVad().use { vad ->
-                            recordingJob(recorder, vad)
-                        }
-                    } else {
-                        recordingJob(recorder, null)
+                    try {
+                        if(useVAD) createVad().use { recordingJob(recorder, it) }
+                        else recordingJob(recorder, null)
+                    } catch(e: kotlinx.coroutines.CancellationException) { throw e }
+                    catch (e: Exception) {
+                        if(streaming == null) throw e
+                        withContext(Dispatchers.Main) { reset(); listener.modelLoadingFailed() }
                     }
                 }
             }
@@ -515,6 +532,8 @@ class AudioRecognizer(
             diagnosticAdmission = org.futo.voiceinput.shared.opencl.VoiceWorkGate.acquire()
             if (diagnosticAdmission == null) { listener.cancelled(); return }
         }
+        streaming?.beginRecording()
+        streamedSamples = 0
         val device = try {
             createRecorderAndJob(settings.recordingConfiguration.preferBluetoothMic)
         } catch (e: SecurityException) {
@@ -559,6 +578,7 @@ class AudioRecognizer(
     }
 
     private suspend fun runModel() {
+        if(streaming != null) recorderJob?.join()
         loadModelJob?.let {
             if (it.isActive) {
                 println("Model was not finished loading...")
@@ -570,12 +590,12 @@ class AudioRecognizer(
 
         yield()
         val outputText = try {
-             modelRunner.run(
-                floatArray,
-                settings.modelRunConfiguration,
-                settings.decodingConfiguration,
-                runnerCallback
-            ).trim()
+             (streaming?.finish(runnerCallback) ?: recognizer.recognize(floatArray, runnerCallback)).trim()
+        } catch (e: InvalidModelException) {
+            // Alternate engines fail explicitly; never retry their session through Whisper.
+            if (settings.modelRunConfiguration.engine == RecognitionEngine.Whisper) throw e
+            withContext(Dispatchers.Main) { reset(); listener.modelLoadingFailed() }
+            return
         } catch (_: org.futo.voiceinput.shared.opencl.OpenClRecognitionException) {
             withContext(Dispatchers.Main) { reset(); listener.modelLoadingFailed() }
             return
@@ -586,12 +606,13 @@ class AudioRecognizer(
 
         // stop_to_result is measured before editor commit; it is not a commit metric.
         val requested = when {
+            streaming != null -> "cpu"
             settings.modelRunConfiguration.fastDictation && settings.modelRunConfiguration.experimentalOpenCl -> "fast"
             settings.modelRunConfiguration.experimentalOpenCl -> "opencl"
             else -> "stock"
         }
         org.futo.voiceinput.shared.opencl.OpenClDiagnostics.record(context,
-            "phase=stop_to_result backend_requested=$requested elapsed_ms=${android.os.SystemClock.elapsedRealtime()-stoppedAt} audio_ms=${floatArray.size/16}")
+            "phase=stop_to_result engine=${settings.modelRunConfiguration.engine.preferenceValue} ${if(streaming != null) "backend=cpu" else "backend_requested=$requested"} elapsed_ms=${android.os.SystemClock.elapsedRealtime()-stoppedAt} audio_ms=${capturedSamples()/16}")
         val text = when {
             isBlankResult(outputText) -> ""
             else -> outputText

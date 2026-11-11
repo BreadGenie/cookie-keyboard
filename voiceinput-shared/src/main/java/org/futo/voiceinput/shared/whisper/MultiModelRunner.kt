@@ -25,7 +25,8 @@ data class MultiModelRunConfiguration(
     val experimentalOpenCl: Boolean = false,
     /** Opt-in everyday Fast dictation. Gated on [experimentalOpenCl]; default
      * off so existing saved settings never migrate. */
-    val fastDictation: Boolean = false
+    val fastDictation: Boolean = false,
+    val engine: org.futo.voiceinput.shared.RecognitionEngine = org.futo.voiceinput.shared.RecognitionEngine.Whisper
 )
 
 data class DecodingConfiguration(

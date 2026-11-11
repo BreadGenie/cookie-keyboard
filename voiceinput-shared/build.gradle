@@ -134,3 +134,15 @@ dependencies {
 
     testImplementation 'junit:junit:4.13.2'
 }
+// Pinned release AAR is verified before selecting its classes and two ARM64 JNI members.
+// Local jar + JNI avoids transitive competing ONNX runtimes and unused C++ wrappers.
+def prepareSherpa = tasks.register('prepareSherpa', Exec) {
+    inputs.file rootProject.file('tools/sherpa/prepare.py')
+    outputs.dir layout.buildDirectory.dir('sherpa')
+    commandLine 'python3', rootProject.file('tools/sherpa/prepare.py')
+}
+dependencies {
+    implementation files(prepareSherpa.map { layout.buildDirectory.file('sherpa/classes.jar').get().asFile })
+}
+android.sourceSets.main.jniLibs.srcDir layout.buildDirectory.dir('sherpa/jni')
+tasks.named('preBuild').configure { dependsOn prepareSherpa }

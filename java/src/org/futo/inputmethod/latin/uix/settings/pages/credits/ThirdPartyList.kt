@@ -13,6 +13,12 @@ typealias TP = ThirdPartyItem
 
 @Suppress("HardCodedStringLiteral")
 val ThirdPartyList: List<ThirdPartyItem> = listOf(
+    TP("Parakeet TDT 0.6B v2", "English speech recognition model — Parakeet TDT 0.6B v2",
+        "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2",
+        "Trained by NVIDIA. Licensed under Creative Commons Attribution 4.0 International: https://creativecommons.org/licenses/by/4.0/ . Converted to ONNX and quantized to int8 by the sherpa-onnx project: https://github.com/k2-fsa/sherpa-onnx . Export revision 84b478d541cdbf0c296a7ab5f1e20a6f8f998114. No further model modifications by Cookie. NVIDIA does not endorse Cookie.",
+        License.PARAKEET_CC_BY_4_0),
+    TP("Silero VAD", "Voice activity detection — Silero VAD", "https://github.com/snakers4/silero-vad",
+        "Copyright Silero Team", License.SILERO_MIT),
     TP(
         "AOSP LatinIME",
         "Keyboard based on AOSP LatinIME",

@@ -1,0 +1,20 @@
+<resources>
+    <string name="voice_engine">Recognition engine</string>
+    <string name="parakeet_model">Parakeet model</string>
+    <string name="parakeet_ready">Ready</string>
+    <string name="parakeet_not_ready">Model not imported</string>
+    <string name="parakeet_details">662 MB · English · %1$s</string>
+    <string name="parakeet_actions">Actions</string>
+    <string name="parakeet_download">Import model</string>
+    <string name="parakeet_import_hint">Choose a ZIP or all five model files</string>
+    <string name="parakeet_importing">Importing</string>
+    <string name="parakeet_delete">Delete</string>
+    <string name="parakeet_delete_title">Delete Parakeet model?</string>
+    <string name="parakeet_delete_body">You will need to import the model again to use Parakeet.</string>
+    <string name="parakeet_error">Import or deletion failed. Check the files and available storage, then try again.</string>
+    <string name="parakeet_progress">%1$d / %2$d MB · Importing and verifying</string>
+    <string name="parakeet_get_files">Get the model files</string>
+    <string name="parakeet_tokens_tip">For tokens.txt, long-press the browser link and choose Download link.</string>
+    <string name="parakeet_licenses">Licenses in Credits</string>
+    <string name="parakeet_personal_dictionary_subtitle">Helps with names and terms</string>
+</resources>
