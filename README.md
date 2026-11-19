@@ -17,9 +17,10 @@ Cookie has been used on the OnePlus 13. Compatibility and performance on other d
 
 ## Install from source
 
-Build from source with JDK 17, Android SDK 35, NDK `28.0.13004108`, and Python 3.
+Build from source with JDK 17, Android SDK 35, NDK `28.0.13004108`, Python 3, and Git LFS.
 
 ```sh
+git lfs install
 git clone --recurse-submodules https://github.com/BreadGenie/cookie-keyboard.git
 cd cookie-keyboard
 ./gradlew assembleCookieDebug
