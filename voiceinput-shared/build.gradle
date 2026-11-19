@@ -139,7 +139,11 @@ dependencies {
 def prepareSherpa = tasks.register('prepareSherpa', Exec) {
     inputs.file rootProject.file('tools/sherpa/prepare.py')
     outputs.dir layout.buildDirectory.dir('sherpa')
+    // Pin verification must run on every build: cached outputs never skip it.
+    outputs.upToDateWhen { false }
     commandLine 'python3', rootProject.file('tools/sherpa/prepare.py')
+    // Offline builds must not fetch: prepare.py fails clearly on a missing cache.
+    if (gradle.startParameter.offline) { args '--offline' }
 }
 dependencies {
     implementation files(prepareSherpa.map { layout.buildDirectory.file('sherpa/classes.jar').get().asFile })

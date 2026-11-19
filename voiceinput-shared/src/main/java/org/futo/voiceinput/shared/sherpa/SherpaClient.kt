@@ -16,42 +16,102 @@ internal interface SherpaTransport {
     fun cancel()
 }
 
-/** Process lifetime identity differs from recording generation. Only death releases its lease. */
+/**
+ * Process lifetime identity differs from recording generation. The lease is taken in the
+ * Binder callback (after linkToDeath, before connect() returns), so only Binder death can
+ * release it. A failure before that callback cannot have sent LOAD, so it owns no native
+ * state and cannot poison a later session.
+ */
 internal class SherpaClient(private val context: Context, private val identity: Long) : SherpaTransport {
     companion object { val lease = SherpaLease() }
+    private val authority = SherpaConnection(lease, identity)
     private val connected = CountDownLatch(1)
     private val invalid = AtomicBoolean()
     private val terminating = AtomicBoolean()
     private val main = Handler(Looper.getMainLooper())
     @Volatile private var binder: IBinder? = null
+    private val bound = AtomicBoolean()
+    private val deathRecipient = IBinder.DeathRecipient {
+        invalid.set(true)
+        try { unbindOnce() } finally { authority.death() }
+    }
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, service: IBinder) {
-            binder = service
-            try {
-                service.linkToDeath({
-                    invalid.set(true)
-                    try { context.unbindService(this) } finally { lease.died(identity) }
-                }, 0)
-            } catch(_: RemoteException) { invalid.set(true) /* No death evidence: retain lease. */ }
-            connected.countDown()
-            if(invalid.get()) terminate()
+            if(invalid.get()) {
+                // A duplicate callback after linking must leave unbinding/release to the
+                // DeathRecipient; only a pre-link callback is safe to tear down here.
+                if(!authority.linked()) {
+                    // Cancelled before the callback: a worker may have started, but no LOAD
+                    // was possible through this connection, so it owns no native state.
+                    authority.abandon(); unbindOnce(); stopWorkerIfUnowned()
+                }
+                connected.countDown(); return
+            }
+            when(authority.connected(
+                linkToDeath = { service.linkToDeath(deathRecipient, 0) },
+                onAcquired = { binder = service }
+            )) {
+                SherpaConnectOutcome.ACQUIRED -> {
+                    connected.countDown()
+                    if(invalid.get()) terminate()
+                }
+                // Duplicate callbacks must not link twice or take a second lease.
+                SherpaConnectOutcome.ALREADY_LINKED -> Unit
+                SherpaConnectOutcome.LEASE_HELD -> {
+                    // Another connection owns the worker; never stop or release it.
+                    unbindOnce(); connected.countDown()
+                }
+                SherpaConnectOutcome.ABANDONED,
+                SherpaConnectOutcome.LINK_FAILED -> {
+                    unbindOnce(); stopWorkerIfUnowned(); connected.countDown()
+                }
+            }
         }
-        override fun onServiceDisconnected(name: ComponentName) { invalid.set(true) }
-        override fun onBindingDied(name: ComponentName) { invalid.set(true); connected.countDown() }
-        override fun onNullBinding(name: ComponentName) { invalid.set(true); connected.countDown() }
+        // Neither callback is death proof. A linked connection keeps its lease until the
+        // DeathRecipient fires; an unlinked one never acquired a lease.
+        override fun onServiceDisconnected(name: ComponentName) {
+            invalid.set(true); authority.abandon(); connected.countDown()
+        }
+        override fun onBindingDied(name: ComponentName) {
+            invalid.set(true); authority.abandon(); connected.countDown()
+        }
+        override fun onNullBinding(name: ComponentName) {
+            invalid.set(true); authority.abandon(); connected.countDown()
+        }
     }
     private val connecting = AtomicBoolean()
     override fun connect() {
         if(!connecting.compareAndSet(false, true)) { check(!invalid.get()); return }
         check(!invalid.get())
         check(Looper.myLooper() != Looper.getMainLooper())
-        check(lease.acquire(identity))
+        check(authority.begin())
         val intent = Intent(context, SherpaService::class.java)
-        val started = context.startService(intent)
-        if(started == null) { lease.notStarted(identity); error("ASR unavailable") }
+        val started = try { context.startService(intent) } catch(_: Exception) { null }
+        // No Binder callback means no lease was taken; this path never loaded native state.
+        if(started == null) { authority.abandon(); error("ASR unavailable") }
         // Never AUTO_CREATE: cancellation must not implicitly create a replacement.
-        check(context.bindService(intent, connection, 0))
-        if(!connected.await(10, TimeUnit.SECONDS) || invalid.get()) { cancel(); error("ASR unavailable") }
+        val accepted = try { context.bindService(intent, connection, 0) } catch(_: Exception) { false }
+        if(!accepted) { authority.abandon(); stopWorkerIfUnowned(); error("ASR unavailable") }
+        bound.set(true)
+        connected.await(10, TimeUnit.SECONDS)
+        if(invalid.get() || !authority.linked()) {
+            if(authority.linked()) {
+                // Cancel/binding failure after the handshake: the DeathRecipient is now the
+                // only release authority, so do not unbind or release here.
+                terminate()
+            } else {
+                authority.abandon(); unbindOnce(); stopWorkerIfUnowned(); terminate()
+            }
+            error("ASR unavailable")
+        }
+    }
+    private fun unbindOnce() {
+        if(bound.compareAndSet(true, false)) try { context.unbindService(connection) } catch(_: Exception) { }
+    }
+    /** stopService must never touch a worker whose lease belongs to another connection. */
+    private fun stopWorkerIfUnowned() {
+        if(lease.held()) return
+        try { context.stopService(Intent(context, SherpaService::class.java)) } catch(_: Exception) { }
     }
     fun alive() = !invalid.get()
     override fun request(op: Int, generation: Long, sequence: Long, kind: String?, path: String?, samples: FloatArray?, hotwords: String): String? {

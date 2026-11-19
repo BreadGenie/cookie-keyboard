@@ -34,10 +34,89 @@ internal class SherpaSession(val generation: Long) {
     }
 }
 
-/** A process lease is released only by its registered Binder DeathRecipient. */
+/** A process lease is released only by Binder death of the worker that owns it. */
 internal class SherpaLease {
     private var owner: Long? = null
     @Synchronized fun acquire(g: Long): Boolean { if(owner != null) return false; owner = g; return true }
-    @Synchronized fun died(g: Long) { check(owner == g); owner = null }
-    @Synchronized fun notStarted(g: Long) { check(owner == g); owner = null }
+    @Synchronized fun release(g: Long) { check(owner == g); owner = null }
+    /** True while some worker may own native state. */
+    @Synchronized fun held(): Boolean = owner != null
+    /** Binder DeathRecipient evidence (alias of [release]). */
+    fun died(g: Long) = release(g)
+}
+
+internal enum class SherpaConnectOutcome {
+    /** linkToDeath succeeded and this connection took the lease. */
+    ACQUIRED,
+    /** A duplicate onServiceConnected arrived after this connection linked. */
+    ALREADY_LINKED,
+    /** The attempt was already abandoned/timed out; never link or load. */
+    ABANDONED,
+    /** linkToDeath failed, so the Binder was already dead. No native call is possible. */
+    LINK_FAILED,
+    /** Another connection owns the worker; leave its lease and worker untouched. */
+    LEASE_HELD,
+}
+
+/**
+ * One connection attempt's authority over the process lease.
+ *
+ * The Binder death recipient is registered first, then the lease is acquired. `connect()`
+ * returns only after [connected] succeeds, and the first native request (`LOAD`) happens
+ * after `connect()`. Therefore a failure before the Binder callback cannot have loaded
+ * native worker state and needs no death proof; once acquired, only [death] (an actual
+ * Binder death) may release the lease, so a replacement never starts while the old worker
+ * may still own native state. Every release is single-shot.
+ */
+internal class SherpaConnection(private val lease: SherpaLease, private val identity: Long) {
+    private enum class Phase { NEW, CONNECTING, LINKED, FAILED }
+    private val lock = Any()
+    private var phase = Phase.NEW
+    private var acquired = false
+    private val released = java.util.concurrent.atomic.AtomicBoolean()
+
+    /** Reserves the single connection attempt for this client. */
+    fun begin(): Boolean = synchronized(lock) {
+        if(phase != Phase.NEW) false else { phase = Phase.CONNECTING; true }
+    }
+
+    /**
+     * Runs in onServiceConnected, before connect() returns. [linkToDeath] must register
+     * the death recipient; if it throws, the Binder is already dead. [onAcquired] publishes
+     * the Binder before [linked] becomes true, so a waiter can never proceed to `LOAD`
+     * without a Binder.
+     */
+    fun connected(onAcquired: () -> Unit = {}, linkToDeath: () -> Unit): SherpaConnectOutcome = synchronized(lock) {
+        when {
+            phase == Phase.LINKED -> SherpaConnectOutcome.ALREADY_LINKED
+            phase != Phase.CONNECTING -> SherpaConnectOutcome.ABANDONED
+            else -> try {
+                linkToDeath()
+                if(lease.acquire(identity)) {
+                    acquired = true
+                    onAcquired()
+                    phase = Phase.LINKED
+                    SherpaConnectOutcome.ACQUIRED
+                } else {
+                    phase = Phase.FAILED
+                    SherpaConnectOutcome.LEASE_HELD
+                }
+            } catch(_: Exception) {
+                phase = Phase.FAILED
+                SherpaConnectOutcome.LINK_FAILED
+            }
+        }
+    }
+
+    /** Ends an attempt that has not linked. Returns true only if this call won. */
+    fun abandon(): Boolean = synchronized(lock) {
+        if(phase != Phase.CONNECTING) false else { phase = Phase.FAILED; true }
+    }
+
+    fun linked(): Boolean = synchronized(lock) { phase == Phase.LINKED }
+
+    /** Binder death is the only evidence that can release an acquired lease. */
+    fun death() = synchronized(lock) {
+        if(acquired && released.compareAndSet(false, true)) lease.release(identity)
+    }
 }

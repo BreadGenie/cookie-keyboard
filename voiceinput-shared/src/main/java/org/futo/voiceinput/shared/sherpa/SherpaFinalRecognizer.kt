@@ -108,6 +108,8 @@ internal class SherpaWork(private val generation: Long, private val kind: String
             check(!invalid)
             val remote = acquire(); transport = remote
             if(invalid) { remote.cancel(); release(true); throw SherpaFailure() }
+            // connect() returns only after linkToDeath and lease acquisition; the first
+            // request (LOAD) below is the first point native worker state can be created.
             remote.connect()
             check(!invalid)
             call(SherpaSession.LOAD)

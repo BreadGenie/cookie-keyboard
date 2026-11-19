@@ -232,6 +232,15 @@ class AudioRecognizer(
     }
 
     private var diagnosticAdmission: Any? = null
+    // Terminal reports belong to the session that produced them; reset()/cancel() advance
+    // the epoch, so a failure observed after they closed the feed queue is stale.
+    private val sessions = RecordingSessionGuard()
+    /** Reports a terminal failure only while its recording session is still the current one. */
+    private suspend fun reportFailure(epoch: Long) {
+        withContext(Dispatchers.Main) {
+            if (sessions.claim(epoch)) { reset(); listener.modelLoadingFailed() }
+        }
+    }
     private fun releaseAdmission() {
         val token = diagnosticAdmission ?: return
         diagnosticAdmission = null
@@ -243,6 +252,7 @@ class AudioRecognizer(
         done()
     }
     fun reset(preserveFastResidency: Boolean = false) {
+        sessions.begin()
         recorder?.stop()
         recorderJob?.cancel()
 
@@ -492,6 +502,7 @@ class AudioRecognizer(
 
             isRecording = true
 
+            val epoch = sessions.current()
             recorderJob = lifecycleScope.launch {
                 withContext(Dispatchers.Default) {
                     try {
@@ -500,7 +511,7 @@ class AudioRecognizer(
                     } catch(e: kotlinx.coroutines.CancellationException) { throw e }
                     catch (e: Exception) {
                         if(streaming == null) throw e
-                        withContext(Dispatchers.Main) { reset(); listener.modelLoadingFailed() }
+                        reportFailure(epoch)
                     }
                 }
             }
@@ -528,6 +539,7 @@ class AudioRecognizer(
     }
 
     private fun startRecording() {
+        val epoch = sessions.begin()
         if (diagnosticAdmission == null) {
             diagnosticAdmission = org.futo.voiceinput.shared.opencl.VoiceWorkGate.acquire()
             if (diagnosticAdmission == null) { listener.cancelled(); return }
@@ -553,10 +565,7 @@ class AudioRecognizer(
                 try {
                     preloadModels()
                 } catch(_: InvalidModelException) {
-                    withContext(Dispatchers.Main) {
-                        reset()
-                        listener.modelLoadingFailed()
-                    }
+                    reportFailure(epoch)
                 }
             }
         }
@@ -577,7 +586,7 @@ class AudioRecognizer(
         }
     }
 
-    private suspend fun runModel() {
+    private suspend fun runModel(sessionEpoch: Long) {
         if(streaming != null) recorderJob?.join()
         loadModelJob?.let {
             if (it.isActive) {
@@ -594,10 +603,10 @@ class AudioRecognizer(
         } catch (e: InvalidModelException) {
             // Alternate engines fail explicitly; never retry their session through Whisper.
             if (settings.modelRunConfiguration.engine == RecognitionEngine.Whisper) throw e
-            withContext(Dispatchers.Main) { reset(); listener.modelLoadingFailed() }
+            reportFailure(sessionEpoch)
             return
         } catch (_: org.futo.voiceinput.shared.opencl.OpenClRecognitionException) {
-            withContext(Dispatchers.Main) { reset(); listener.modelLoadingFailed() }
+            reportFailure(sessionEpoch)
             return
         } catch(e: InferenceCancelledException) {
             yield()
@@ -642,10 +651,27 @@ class AudioRecognizer(
 
         listener.processing()
 
+        val sessionEpoch = sessions.current()
         modelJob = lifecycleScope.launch {
             withContext(Dispatchers.Default) {
-                runModel()
+                runModel(sessionEpoch)
             }
         }
+    }
+}
+
+/**
+ * One recording session's terminal-outcome claim. [begin] ends any earlier session, so a
+ * failure observed after reset()/cancel() is stale and loses its claim instead of reporting
+ * a second outcome. Exactly one terminal report is accepted per session.
+ */
+internal class RecordingSessionGuard {
+    private val lock = Any()
+    private var epoch = 0L
+    private var claimed = false
+    fun current(): Long = synchronized(lock) { epoch }
+    fun begin(): Long = synchronized(lock) { epoch++; claimed = false; epoch }
+    fun claim(observed: Long): Boolean = synchronized(lock) {
+        if (observed != epoch || claimed) false else { claimed = true; true }
     }
 }

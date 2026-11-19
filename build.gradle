@@ -330,8 +330,8 @@ android {
         cookie {
             dimension "buildType"
             applicationId 'io.github.breadgenie.cookie'
-            versionCode 56
-            versionName '0.1.0-rc1'
+            versionCode 71
+            versionName '0.1.0'
             manifestPlaceholders = [paymentKeyboardScheme: 'cookie-keyboard', paymentVoiceScheme: 'cookie-voice-input', voiceSwitchAction: 'io.github.breadgenie.cookie.action.VoiceInputSwitch']
             buildConfigField "String", "PAYMENT_KEYBOARD_SCHEME", '"cookie-keyboard"'
             buildConfigField "String", "PAYMENT_VOICE_SCHEME", '"cookie-voice-input"'
