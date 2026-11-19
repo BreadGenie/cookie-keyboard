@@ -1,8 +1,8 @@
 <resources>
-    <string name="voice_input_experimental_opencl">Experimental OpenCL GPU</string>
-    <string name="voice_input_experimental_opencl_summary">Preview for supported Adreno OpenCL drivers; shown only after a device capability check. Requires the existing English-244 download and English-only keyboard locales. Other models use stock CPU. Prewarms while recording and keeps a loaded model for up to 5 idle minutes, unless memory pressure or Android releases it. A cold load may still take 20 seconds. Runs in a separate process; driver failures may end recognition. Stock FUTO is the default when off.</string>
-    <string name="voice_input_experimental_opencl_fast">Fast dictation (experimental)</string>
-    <string name="voice_input_experimental_opencl_fast_summary">Faster decode when Experimental OpenCL GPU is on. May change accuracy or punctuation. Requires the English-244 download and English only. Off by default; stock CPU and normal GPU stay available.</string>
+    <string name="voice_input_experimental_opencl">GPU acceleration (OpenCL)</string>
+    <string name="voice_input_experimental_opencl_summary">Experimental GPU acceleration for English-244 with English-only keyboard languages.</string>
+    <string name="voice_input_experimental_opencl_fast">Fast mode</string>
+    <string name="voice_input_experimental_opencl_fast_summary">Experimental faster OpenCL decoding for English-244 with English-only keyboard languages may affect accuracy.</string>
     <string name="voice_input_opencl_timings">Copy voice timing diagnostics</string>
     <string name="voice_input_opencl_status">OpenCL capability</string>
     <string name="voice_input_opencl_status_checking">opencl_capability status=checking</string>

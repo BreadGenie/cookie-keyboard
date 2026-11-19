@@ -40,6 +40,8 @@
          android:roundIcon="@mipmap/ic_launcher_round"
          android:supportsRtl="true"
          android:allowBackup="true"
+         android:fullBackupContent="@xml/cookie_backup_rules"
+         android:dataExtractionRules="@xml/cookie_data_extraction_rules"
          android:largeHeap="true"
          android:enableOnBackInvokedCallback="true"
          android:name=".CrashLoggingApplication">
@@ -72,7 +74,7 @@
 
         <!-- Activities -->
         <activity android:name=".uix.settings.SettingsActivity"
-             android:theme="@style/Theme.AppCompat.DayNight.NoActionBar"
+             android:theme="@style/SettingsTheme"
              android:icon="@mipmap/ic_launcher"
              android:roundIcon="@mipmap/ic_launcher_round"
              android:launchMode="singleTask"
@@ -95,7 +97,7 @@
             android:configChanges="orientation|screenLayout|screenSize|keyboardHidden|keyboard|uiMode|density"
             android:exported="true">
             <intent-filter>
-                <action android:name="org.futo.inputmethod.latin.action.VoiceInputSwitch" />
+                <action android:name="${voiceSwitchAction}" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
@@ -177,8 +179,8 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
 
-                <data android:scheme="futo-voice-input" />
-                <data android:scheme="futo-keyboard" />
+                <data android:scheme="${paymentVoiceScheme}" />
+                <data android:scheme="${paymentKeyboardScheme}" />
             </intent-filter>
         </activity>
 

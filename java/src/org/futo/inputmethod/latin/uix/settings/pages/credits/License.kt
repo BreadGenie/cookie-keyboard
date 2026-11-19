@@ -3,6 +3,11 @@ package org.futo.inputmethod.latin.uix.settings.pages.credits
 import android.content.Context
 
 enum class License {
+    PARAKEET_CC_BY_4_0,
+    SHERPA_ONNX_APACHE_2,
+    ONNX_RUNTIME_MIT,
+    ONNX_RUNTIME_THIRD_PARTY_NOTICES,
+    SILERO_MIT,
     OFL1_1,
     MIT,
     Apache2,
@@ -17,6 +22,11 @@ enum class License {
 
 @Suppress("HardCodedStringLiteral")
 fun License.text(context: Context) = when(this) {
+    License.PARAKEET_CC_BY_4_0 -> context.assets.open("licenses/parakeet-CC-BY-4.0.txt").bufferedReader().use { it.readText() }
+    License.SHERPA_ONNX_APACHE_2 -> context.assets.open("licenses/sherpa/sherpa-onnx-LICENSE.txt").bufferedReader().use { it.readText() }
+    License.ONNX_RUNTIME_MIT -> context.assets.open("licenses/sherpa/onnxruntime-LICENSE.txt").bufferedReader().use { it.readText() }
+    License.ONNX_RUNTIME_THIRD_PARTY_NOTICES -> context.assets.open("licenses/sherpa/onnxruntime-ThirdPartyNotices.txt").bufferedReader().use { it.readText() }
+    License.SILERO_MIT -> context.assets.open("licenses/silero-MIT.txt").bufferedReader().use { it.readText() }
     License.OFL1_1 ->
         """This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:

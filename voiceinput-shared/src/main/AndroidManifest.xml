@@ -3,6 +3,8 @@
 
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <application>
+        <service android:name="org.futo.voiceinput.shared.sherpa.SherpaService"
+            android:exported="false" android:process=":asr" />
         <uses-native-library android:name="libOpenCL.so" android:required="false" />
         <service android:name="org.futo.voiceinput.shared.opencl.OpenClService"
             android:exported="false" android:process=":experimental_opencl" />

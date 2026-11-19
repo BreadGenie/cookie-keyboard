@@ -202,6 +202,9 @@ android {
         versionCode getVersionCode()
 
         applicationId 'org.futo.inputmethod.latin'
+        manifestPlaceholders = [paymentKeyboardScheme: 'futo-keyboard', paymentVoiceScheme: 'futo-voice-input', voiceSwitchAction: 'org.futo.inputmethod.latin.action.VoiceInputSwitch']
+        buildConfigField "String", "PAYMENT_KEYBOARD_SCHEME", '"futo-keyboard"'
+        buildConfigField "String", "PAYMENT_VOICE_SCHEME", '"futo-voice-input"'
         testApplicationId 'org.futo.inputmethod.latin.tests'
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = false
@@ -226,19 +229,54 @@ android {
         }
     }
 
-    final def keystorePropertiesFile = rootProject.file("keystore.properties")
-    def releaseSigning = signingConfigs.debug
+    // Only the properties file path is public configuration. Never pass passwords
+    // on the command line or fall back to the upstream shared debug key.
+    final def keystorePropertiesFile = rootProject.file(
+            providers.gradleProperty('cookieSigningProperties').orElse(
+                    System.getenv('COOKIE_SIGNING_PROPERTIES') ?: 'keystore.properties').get())
+    final def keystoreProperties = new Properties()
+    def releaseSigning = null
     if (keystorePropertiesFile.exists()) {
-        final def keystoreProperties = new Properties()
-        keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+        keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
         releaseSigning = signingConfigs.create("release") {
             keyAlias keystoreProperties['keyAlias']
             keyPassword keystoreProperties['keyPassword']
             storeFile rootProject.file(keystoreProperties['storeFile'])
             storePassword keystoreProperties['storePassword']
+            enableV2Signing true
+            enableV3Signing true
         }
-    } else {
-        project.logger.lifecycle('keystore.properties not found, APK may not be signed')
+    }
+
+    def verifyPrivateReleaseSigning = tasks.register('verifyPrivateReleaseSigning') {
+        doLast {
+            if (!keystorePropertiesFile.isFile() ||
+                    ['storeFile', 'storePassword', 'keyAlias', 'keyPassword'].any { !keystoreProperties[it] }) {
+                throw new GradleException('Release requires private signing properties; set COOKIE_SIGNING_PROPERTIES. See README.md. No debug-key fallback is allowed.')
+            }
+            try {
+                def keyStore = java.security.KeyStore.getInstance(java.security.KeyStore.getDefaultType())
+                rootProject.file(keystoreProperties['storeFile']).withInputStream {
+                    keyStore.load(it, keystoreProperties['storePassword'].toCharArray())
+                }
+                def alias = keystoreProperties['keyAlias']
+                if (!keyStore.isKeyEntry(alias) || keyStore.getKey(alias, keystoreProperties['keyPassword'].toCharArray()) == null) {
+                    throw new IllegalArgumentException()
+                }
+                def digest = java.security.MessageDigest.getInstance('SHA-256')
+                        .digest(keyStore.getCertificate(alias).encoded).encodeHex().toString()
+                if (digest == '28bbfe4a7b97e74681dc55c2fbb6ccb8d6c74963733f6af6ae74d8c3a6e879fd') {
+                    throw new IllegalArgumentException()
+                }
+            } catch (Exception ignored) {
+                throw new GradleException('Private release signing validation failed. Check the private config/key; the upstream shared debug certificate is forbidden.')
+            }
+        }
+    }
+    applicationVariants.all { variant ->
+        if (variant.buildType.name == 'release') {
+            variant.preBuildProvider.configure { dependsOn verifyPrivateReleaseSigning }
+        }
     }
 
 
@@ -265,7 +303,7 @@ android {
         }
 
         buildTypes.each {
-            if (crashReportPropertiesFile.exists()) {
+            if (crashReportPropertiesFile.exists() && it.name != 'release') {
                 it.buildConfigField "boolean", "ENABLE_ACRA", crashReportProperties['acraEnabled']
                 it.buildConfigField "String", "ACRA_URL", crashReportProperties['acraUrl']
                 it.buildConfigField "String", "ACRA_USER", crashReportProperties['acraUser']
@@ -289,6 +327,21 @@ android {
     flavorDimensions = ["buildType"]
 
     productFlavors {
+        cookie {
+            dimension "buildType"
+            applicationId 'io.github.breadgenie.cookie'
+            versionCode 71
+            versionName '0.1.0'
+            manifestPlaceholders = [paymentKeyboardScheme: 'cookie-keyboard', paymentVoiceScheme: 'cookie-voice-input', voiceSwitchAction: 'io.github.breadgenie.cookie.action.VoiceInputSwitch']
+            buildConfigField "String", "PAYMENT_KEYBOARD_SCHEME", '"cookie-keyboard"'
+            buildConfigField "String", "PAYMENT_VOICE_SCHEME", '"cookie-voice-input"'
+            buildConfigField "boolean", "IS_PLAYSTORE_BUILD", "false"
+            // An unofficial Cookie fork must not offer an upstream FUTO APK update.
+            buildConfigField "boolean", "UPDATE_CHECKING", "false"
+            buildConfigField "boolean", "UPDATE_CHECKING_NETWORK", "false"
+            buildConfigField "String", "BRANCH", '"cookie"'
+            buildConfigField "String", "PAYMENT_PRICE", "FUTOPAY_PRICE"
+        }
         unstable {
             dimension "buildType"
             applicationIdSuffix ".unstable"
@@ -334,6 +387,11 @@ android {
     }
 
     sourceSets {
+        cookie {
+            java.srcDirs = ['common/src', 'java/src', 'java/stable/java']
+            manifest.srcFile 'java/stable/AndroidManifest.xml'
+            res.srcDirs = ['src/cookie/res']
+        }
         main {
             res.srcDirs = [
                     'java/res',
@@ -388,9 +446,21 @@ android {
     // 28.0.13004108 is installed and disk budget forbids a full NDK download.
     // Both are r28/clang-19; no runtime change intended.
     ndkVersion '28.0.13004108'
-    externalNativeBuild {
-        cmake {
-            path 'native/jni/CMakeLists.txt'
+    if (project.hasProperty('cookieVerifiedNativeDir')) {
+        // tools/release/verify-native-reuse.py produces this directory only after
+        // checking every v55 packaged library and all assets. JNI names stay FUTO.
+        def verifiedNativeDir = file(project.property('cookieVerifiedNativeDir'))
+        def stockJni = new File(verifiedNativeDir, 'arm64-v8a/libjni_latinime.so')
+        if (!stockJni.isFile() || java.security.MessageDigest.getInstance('SHA-256')
+                .digest(stockJni.bytes).encodeHex().toString() != '7d0843147d498262e18050c5e907da5e80f1ae3e4e8479bd5542d7dfb55acf6c') {
+            throw new GradleException('Verified v55 stock JNI is missing or changed. Run tools/release/verify-native-reuse.py first.')
+        }
+        sourceSets.cookie.jniLibs.srcDir verifiedNativeDir
+    } else {
+        externalNativeBuild {
+            cmake {
+                path 'native/jni/CMakeLists.txt'
+            }
         }
     }
 
@@ -438,6 +508,8 @@ dependencies {
     stableImplementation 'ch.acra:acra-dialog:5.11.1'
     unstableImplementation 'ch.acra:acra-mail:5.11.1'
     unstableImplementation 'ch.acra:acra-dialog:5.11.1'
+    cookieImplementation 'ch.acra:acra-mail:5.11.1'
+    cookieImplementation 'ch.acra:acra-dialog:5.11.1'
 
     implementation 'sh.calvin.reorderable:reorderable:3.0.0'
 
@@ -495,4 +567,16 @@ if (project.hasProperty('experimentalOpenClNative')) {
         commandLine 'bash', file('tools/opencl/build-native.sh').absolutePath
     }
     tasks.named('preBuild').configure { dependsOn 'prepareExperimentalOpenCl' }
+}
+
+// Debug-only Whistle validation. Never builds or links stock Whisper.
+android.sourceSets.debug.jniLibs.srcDir layout.buildDirectory.dir('whistle-jni')
+android.sourceSets.debug.assets.srcDir layout.buildDirectory.dir('whistle-assets')
+tasks.register('prepareWhistleDebug', Exec) {
+    workingDir rootProject.projectDir
+    commandLine 'bash', file('tools/whistle/build-jni.sh').absolutePath
+}
+tasks.configureEach { if (name in ['preCookieDebugBuild', 'preUnstableDebugBuild']) dependsOn 'prepareWhistleDebug' }
+if (project.hasProperty('cookieVerifiedNativeDir')) {
+    android.sourceSets.debug.jniLibs.srcDir file(project.property('cookieVerifiedNativeDir'))
 }

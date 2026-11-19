@@ -1,0 +1,68 @@
+{
+  "runtime": {
+    "version": "4.0.0",
+    "revision": "1a028f5a3972b67dd8d8752f882113d475e7ec4c",
+    "manifest_sha256": "b6a39fb21bc77780c029c45d4cc206b60f883146fa2dbc28bfcc9995fe72b871",
+    "declared_source_commit": "d6a669a59f43ffc8f50425fe5043dc61dd457f6f",
+    "engine_source_rebuild_verified": false
+  },
+  "model": {
+    "repository": "Cactus-Compute/whistle",
+    "revision": "741118687e1f008f06d1351a402a731274789790",
+    "format": "whistle.cact",
+    "size": 16919407,
+    "sha256": "b6e02f048568ac5d01a2042556c658061e699acbc0aa2a1439f52f3d461dffeb"
+  },
+  "artifacts": [
+    {
+      "file": ".cache/LICENSE",
+      "url": "https://huggingface.co/Cactus-Compute/cactus/resolve/1a028f5a3972b67dd8d8752f882113d475e7ec4c/releases/4.0.0/LICENSE",
+      "size": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "file": ".cache/android-arm64/cactus.h",
+      "url": "https://huggingface.co/Cactus-Compute/cactus/resolve/1a028f5a3972b67dd8d8752f882113d475e7ec4c/releases/4.0.0/android-arm64/cactus.h",
+      "size": 1671,
+      "sha256": "facefca17a0d5e715bd92a8b0ea272c1ac34a20a798003b1e691c8fba5ace6e2"
+    },
+    {
+      "file": ".cache/android-arm64/libcactus.a",
+      "url": "https://huggingface.co/Cactus-Compute/cactus/resolve/1a028f5a3972b67dd8d8752f882113d475e7ec4c/releases/4.0.0/android-arm64/libcactus.a",
+      "size": 2826406,
+      "sha256": "4f75e975f6a859979a2715a89fdbc0fc32742cde001f8674598cf89017d39fdf"
+    },
+    {
+      "file": ".cache/linux-x86_64/cactus.h",
+      "url": "https://huggingface.co/Cactus-Compute/cactus/resolve/1a028f5a3972b67dd8d8752f882113d475e7ec4c/releases/4.0.0/linux-x86_64/cactus.h",
+      "size": 1671,
+      "sha256": "facefca17a0d5e715bd92a8b0ea272c1ac34a20a798003b1e691c8fba5ace6e2"
+    },
+    {
+      "file": ".cache/linux-x86_64/libcactus.a",
+      "url": "https://huggingface.co/Cactus-Compute/cactus/resolve/1a028f5a3972b67dd8d8752f882113d475e7ec4c/releases/4.0.0/linux-x86_64/libcactus.a",
+      "size": 2847638,
+      "sha256": "9e5e7abe1b0bf6675b69a00a5c5e875e80fde496d4e79f7ae86faeae5cab8fd6"
+    },
+    {
+      "file": ".cache/linux-x86_64/cactus",
+      "url": "https://huggingface.co/Cactus-Compute/cactus/resolve/1a028f5a3972b67dd8d8752f882113d475e7ec4c/releases/4.0.0/linux-x86_64/cactus",
+      "size": 1602448,
+      "sha256": "1233a27b65f2557ade0c965f17ba9de70a47e9f10c139539daca78814f946045"
+    },
+    {
+      "file": ".cache/model-LICENSE",
+      "url": "https://huggingface.co/Cactus-Compute/whistle/resolve/741118687e1f008f06d1351a402a731274789790/LICENSE",
+      "size": 11358,
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+    },
+    {
+      "file": ".cache/whistle.cact",
+      "url": "https://huggingface.co/Cactus-Compute/whistle/resolve/741118687e1f008f06d1351a402a731274789790/whistle.cact",
+      "size": 16919407,
+      "sha256": "b6e02f048568ac5d01a2042556c658061e699acbc0aa2a1439f52f3d461dffeb"
+    }
+  ],
+  "wrapper_source": "https://github.com/cactus-compute/cactus/blob/ee2ffc67fe0f9537d4928e158440c7d228a63100/cactus/agent/whistle.py",
+  "source_validation": "Fetched pinned official release manifest/header/LICENSE, model LICENSE, and official wrapper directly by HTTPS; downloaded artifacts verified by size and SHA-256."
+}

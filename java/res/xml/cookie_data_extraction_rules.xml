@@ -1,0 +1,4 @@
+<data-extraction-rules>
+    <cloud-backup><exclude domain="file" path="sherpa/" /></cloud-backup>
+    <device-transfer><exclude domain="file" path="sherpa/" /></device-transfer>
+</data-extraction-rules>

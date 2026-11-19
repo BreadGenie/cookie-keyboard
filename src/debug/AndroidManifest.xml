@@ -1,13 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
-        <activity android:name="org.futo.inputmethod.latin.SttComparisonActivity" android:exported="true" android:label="STT comparison"
+        <service android:name="org.futo.inputmethod.latin.whistle.WhistleService" android:exported="false" android:process=":whistle" android:stopWithTask="true" />
+        <activity android:name="org.futo.inputmethod.latin.whistle.WhistleDiagnosticActivity" android:exported="false" android:label="Whistle validation" android:theme="@android:style/Theme.Material.Light.NoActionBar" />
+        <activity android:name="org.futo.inputmethod.latin.SttComparisonActivity" android:exported="false" android:label="STT comparison"
             android:theme="@style/Theme.AppCompat.DayNight.NoActionBar"
             android:configChanges="orientation|screenLayout|screenSize|keyboardHidden|keyboard|uiMode|density"
             android:windowSoftInputMode="adjustResize">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
         </activity>
     </application>
 </manifest>

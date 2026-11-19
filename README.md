@@ -4,7 +4,7 @@
 
 Cookie is a modified, unofficial fork of [FUTO Keyboard](https://github.com/futo-org/android-keyboard) for non-commercial use. It keeps FUTO's typing, suggestions, layouts, and themes and adds NVIDIA Parakeet as a second speech engine.
 
-[Cookie source](https://github.com/BreadGenie/cookie-keyboard/tree/cookie-parakeet) · [License](LICENSE.md)
+[Releases](https://github.com/BreadGenie/cookie-keyboard/releases) · [License](LICENSE.md)
 
 ## Features
 
@@ -17,10 +17,10 @@ Cookie has been used on the OnePlus 13. Compatibility and performance on other d
 
 ## Install from source
 
-There are currently no APKs on GitHub Releases. Build from the [`cookie-parakeet` branch](https://github.com/BreadGenie/cookie-keyboard/tree/cookie-parakeet) with JDK 17, Android SDK 35, NDK `28.0.13004108`, and Python 3.
+Build from source with JDK 17, Android SDK 35, NDK `28.0.13004108`, and Python 3.
 
 ```sh
-git clone --recurse-submodules --branch cookie-parakeet https://github.com/BreadGenie/cookie-keyboard.git
+git clone --recurse-submodules https://github.com/BreadGenie/cookie-keyboard.git
 cd cookie-keyboard
 ./gradlew assembleCookieDebug
 adb install -r build/outputs/apk/cookie/debug/futo-keyboard-cookie-debug.apk

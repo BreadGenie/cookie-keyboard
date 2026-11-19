@@ -1,0 +1,1 @@
+{ global: cookie_whistle_load; cookie_whistle_feed; cookie_whistle_finish; cookie_whistle_cancel; Java_org_futo_inputmethod_latin_whistle_WhistleNative_load; Java_org_futo_inputmethod_latin_whistle_WhistleNative_feed; Java_org_futo_inputmethod_latin_whistle_WhistleNative_finish; local: *; };
